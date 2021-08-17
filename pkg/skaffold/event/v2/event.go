@@ -119,6 +119,7 @@ type listener struct {
 func WrapInMainAndHandle(messageId string, event proto1.Message, eventType string) {
 	dst := &anypb.Any{}
 	anypb.MarshalFrom(dst, event, proto1.MarshalOptions{})
+	//json.Marshal(dst, event, proto1.MarshalOptions{})
 	handler.handle(messageId, eventType, dst)
 }
 
@@ -420,7 +421,8 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 		ev.logApplicationLog(event)
 		return
 	case BuildSucceededEvent:
-		var buildEvent *proto.BuildSucceededEvent
+		buildEvent := &proto.BuildSucceededEvent{}
+		anypb.UnmarshalTo(event.Data, buildEvent, proto1.UnmarshalOptions{})
 		json.Unmarshal(event.Data.Value, buildEvent)
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
@@ -428,15 +430,18 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 			ev.stateLock.Unlock()
 		}
 	case BuildStartedEvent:
-		var buildEvent *proto.BuildStartedEvent
+		buildEvent := &proto.BuildStartedEvent{}
+		fmt.Println(event.Data)
+		anypb.UnmarshalTo(event.Data, buildEvent, proto1.UnmarshalOptions{})
 		json.Unmarshal(event.Data.Value, buildEvent)
+		fmt.Println(buildEvent)
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
 			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
 			ev.stateLock.Unlock()
 		}
 	case BuildFailedEvent:
-		var buildEvent *proto.BuildFailedEvent
+		buildEvent := &proto.BuildFailedEvent{}
 		json.Unmarshal(event.Data.Value, buildEvent)
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
@@ -444,7 +449,7 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 			ev.stateLock.Unlock()
 		}
 	case BuildCancelledEvent:
-		var buildEvent *proto.BuildCancelledEvent
+		buildEvent := &proto.BuildCancelledEvent{}
 		json.Unmarshal(event.Data.Value, buildEvent)
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
@@ -452,49 +457,49 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 			ev.stateLock.Unlock()
 		}
 	case TesterFailedEvent:
-		var te *proto.TestFailedEvent
+		te := &proto.TestFailedEvent{}
 		json.Unmarshal(event.Data.Value, te)
 		ev.stateLock.Lock()
 		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
 	case TesterStartedEvent:
-		var te *proto.TestStartedEvent
+		te := &proto.TestStartedEvent{}
 		json.Unmarshal(event.Data.Value, te)
 		ev.stateLock.Lock()
 		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
 	case RendererFailedEvent:
-		var re *proto.RenderFailedEvent
+		re := &proto.RenderFailedEvent{}
 		json.Unmarshal(event.Data.Value, re)
 		ev.stateLock.Lock()
 		ev.state.RenderState.Status = re.Status
 		ev.stateLock.Unlock()
 	case ReenderSucceededEvent:
-		var re *proto.RenderSucceededEvent
+		re := &proto.RenderSucceededEvent{}
 		json.Unmarshal(event.Data.Value, re)
 		ev.stateLock.Lock()
 		ev.state.RenderState.Status = re.Status
 		ev.stateLock.Unlock()
 	case RendererStartedEvent:
-		var de *proto.DeployStartedEvent
+		de := &proto.DeployStartedEvent{}
 		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case DeployFailedEvent:
-		var de *proto.DeployFailedEvent
+		de := &proto.DeployFailedEvent{}
 		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case DeploySucceededEvent:
-		var de *proto.DeploySucceededEvent
+		de := &proto.DeploySucceededEvent{}
 		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case PortForwardedEvent:
-		var pe *proto.PortForwardEvent
+		pe := &proto.PortForwardEvent{}
 		json.Unmarshal(event.Data.Value, pe)
 		ev.stateLock.Lock()
 		if ev.state.ForwardedPorts == nil {
@@ -503,38 +508,38 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 		ev.state.ForwardedPorts[pe.LocalPort] = pe
 		ev.stateLock.Unlock()
 	case StatusCheckStartedEvent:
-		var se *proto.StatusCheckStartedEvent
+		se := &proto.StatusCheckStartedEvent{}
 		json.Unmarshal(event.Data.Value, se)
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case StatusCheckSucceededEvent:
-		var se *proto.StatusCheckSucceededEvent
+		se := &proto.StatusCheckSucceededEvent{}
 		json.Unmarshal(event.Data.Value, se)
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case StatusCheckFailedEvent:
-		var se *proto.StatusCheckFailedEvent
+		se := &proto.StatusCheckFailedEvent{}
 		json.Unmarshal(event.Data.Value, se)
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case FileSyncEvent:
-		var fse *proto.FileSyncEvent
+		fse := &proto.FileSyncEvent{}
 		json.Unmarshal(event.Data.Value, fse)
 		ev.stateLock.Lock()
 		ev.state.FileSyncState.Status = fse.Status
 		ev.stateLock.Unlock()
 	case DebuggingContainerStartedEvent:
-		var de *proto.DebuggingContainerStartedEvent
+		de := &proto.DebuggingContainerStartedEvent{}
 		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		//Todo: copy state from event and replace nil
 		//ev.state.DebuggingContainerState = append(ev.state.DebuggingContainerState, )
 		ev.stateLock.Unlock()
 	case DebuggingContainerTerminatedEvent:
-		var de *proto.DebuggingContainerTerminatedEvent
+		de := &proto.DebuggingContainerTerminatedEvent{}
 		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		n := 0
