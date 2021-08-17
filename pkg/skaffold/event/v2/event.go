@@ -401,7 +401,7 @@ func (ev *eventHandler) setState(state proto.State) {
 }
 
 func (ev *eventHandler) handle(id string, eventtype string, dst *anypb.Any) {
-	event := &proto.Event{Id: id, Type: eventtype, Data: dst}
+	event := &proto.Event{Id: id, Type: eventtype, Data: dst, Specversion: "1.0", Source: "skaffold.dev"}
 	ev.handleInternal(event)
 }
 

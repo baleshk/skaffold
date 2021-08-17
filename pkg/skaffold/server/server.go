@@ -192,7 +192,7 @@ func newGRPCServer(preferredPort int, usedPorts *util.PortSet) (func() error, in
 }
 
 func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func() error, error) {
-	muxV2 := runtimeV2.NewServeMux(runtimeV2.WithMarshalerOption(runtimeV2.MIMEWildcard, &runtimeV2.ProtoMarshaller{}))
+	muxV2 := runtimeV2.NewServeMux()
 	//mux := runtime.NewServeMux(runtime.WithProtoErrorHandler(errorHandler), runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	//err := proto.RegisterSkaffoldServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
@@ -204,22 +204,24 @@ func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func(
 		return func() error { return nil }, err
 	}
 
-	l, port, err := listenOnAvailablePort(preferredPort, usedPorts)
-	if err != nil {
-		return func() error { return nil }, fmt.Errorf("creating listener: %w", err)
-	}
+	/*
+		l, port, err := listenOnAvailablePort(preferredPort, usedPorts)
+		if err != nil {
+			return func() error { return nil }, fmt.Errorf("creating listener: %w", err)
+		}
 
-	if port != preferredPort {
-		logrus.Warnf("starting gRPC HTTP server on port %d. (%d is already in use)", port, preferredPort)
-	} else {
-		logrus.Infof("starting gRPC HTTP server on port %d", port)
-	}
-
+		if port != preferredPort {
+			logrus.Warnf("starting gRPC HTTP server on port %d. (%d is already in use)", port, preferredPort)
+		} else {
+			logrus.Infof("starting gRPC HTTP server on port %d", port)
+		}
+	*/
+	go http.ListenAndServe(":8081", muxV2)
 	server := &http.Server{
 		Handler: muxV2,
 	}
 
-	go server.Serve(l)
+	//go server.Serve(l)
 
 	return func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), forceShutdownTimeout)
