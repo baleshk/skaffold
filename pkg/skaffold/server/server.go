@@ -193,13 +193,13 @@ func newGRPCServer(preferredPort int, usedPorts *util.PortSet) (func() error, in
 
 func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func() error, error) {
 	muxV2 := runtimeV2.NewServeMux(runtimeV2.WithMarshalerOption(runtimeV2.MIMEWildcard, &runtimeV2.ProtoMarshaller{}))
-	mux := runtime.NewServeMux(runtime.WithProtoErrorHandler(errorHandler), runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	//mux := runtime.NewServeMux(runtime.WithProtoErrorHandler(errorHandler), runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := proto.RegisterSkaffoldServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
-	if err != nil {
-		return func() error { return nil }, err
-	}
-	err = protoV2.RegisterSkaffoldV2ServiceHandlerFromEndpoint(context.Background(), muxV2, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
+	//err := proto.RegisterSkaffoldServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
+	//if err != nil {
+	//	return func() error { return nil }, err
+	//}
+	err := protoV2.RegisterSkaffoldV2ServiceHandlerFromEndpoint(context.Background(), muxV2, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
 	if err != nil {
 		return func() error { return nil }, err
 	}
@@ -216,7 +216,7 @@ func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func(
 	}
 
 	server := &http.Server{
-		Handler: mux,
+		Handler: muxV2,
 	}
 
 	go server.Serve(l)
