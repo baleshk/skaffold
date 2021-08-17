@@ -26,34 +26,29 @@ import (
 )
 
 func TesterInProgress(id int) {
-	handler.handleTestSubtaskEvent(&proto.TestSubtaskEvent{
+	testerEvent := &proto.TestStartedEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Test, handler.iteration),
 		Status: InProgress,
-	})
+	}
+	WrapInMainAndHandle(testerEvent.Id, testerEvent, TesterStartedEvent)
 }
 
 func TesterFailed(id int, err error) {
-	handler.handleTestSubtaskEvent(&proto.TestSubtaskEvent{
+	testerEvent := &proto.TestFailedEvent{
 		Id:            strconv.Itoa(id),
 		TaskId:        fmt.Sprintf("%s-%d", constants.Test, handler.iteration),
 		Status:        Failed,
 		ActionableErr: sErrors.ActionableErrV2(handler.cfg, constants.Test, err),
-	})
+	}
+	WrapInMainAndHandle(testerEvent.Id, testerEvent, TesterFailedEvent)
 }
 
 func TesterSucceeded(id int) {
-	handler.handleTestSubtaskEvent(&proto.TestSubtaskEvent{
+	testerEvent := &proto.TestSucceededEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Test, handler.iteration),
 		Status: Succeeded,
-	})
-}
-
-func (ev *eventHandler) handleTestSubtaskEvent(e *proto.TestSubtaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_TestEvent{
-			TestEvent: e,
-		},
-	})
+	}
+	WrapInMainAndHandle(testerEvent.Id, testerEvent, TesterSucceededEvent)
 }

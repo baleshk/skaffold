@@ -16,40 +16,36 @@ limitations under the License.
 
 package v2
 
-import proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+import (
+	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+)
 
 // DebuggingContainerStarted notifies that a debuggable container has appeared.
 func DebuggingContainerStarted(podName, containerName, namespace, artifact, runtime, workingDir string, debugPorts map[string]uint32) {
-	handler.handle(&proto.Event{
-		EventType: &proto.Event_DebuggingContainerEvent{
-			DebuggingContainerEvent: &proto.DebuggingContainerEvent{
-				Status:        Started,
-				PodName:       podName,
-				ContainerName: containerName,
-				Namespace:     namespace,
-				Artifact:      artifact,
-				Runtime:       runtime,
-				WorkingDir:    workingDir,
-				DebugPorts:    debugPorts,
-			},
-		},
-	})
+	debuggingContainerEvent := &proto.DebuggingContainerStartedEvent{
+		Status:        Started,
+		PodName:       podName,
+		ContainerName: containerName,
+		Namespace:     namespace,
+		Artifact:      artifact,
+		Runtime:       runtime,
+		WorkingDir:    workingDir,
+		DebugPorts:    debugPorts,
+	}
+	WrapInMainAndHandle(artifact, debuggingContainerEvent, DebuggingContainerStartedEvent)
 }
 
 // DebuggingContainerTerminated notifies that a debuggable container has disappeared.
 func DebuggingContainerTerminated(podName, containerName, namespace, artifact, runtime, workingDir string, debugPorts map[string]uint32) {
-	handler.handle(&proto.Event{
-		EventType: &proto.Event_DebuggingContainerEvent{
-			DebuggingContainerEvent: &proto.DebuggingContainerEvent{
-				Status:        Terminated,
-				PodName:       podName,
-				ContainerName: containerName,
-				Namespace:     namespace,
-				Artifact:      artifact,
-				Runtime:       runtime,
-				WorkingDir:    workingDir,
-				DebugPorts:    debugPorts,
-			},
-		},
-	})
+	debuggingContainerEvent := &proto.DebuggingContainerTerminatedEvent{
+		Status:        Terminated,
+		PodName:       podName,
+		ContainerName: containerName,
+		Namespace:     namespace,
+		Artifact:      artifact,
+		Runtime:       runtime,
+		WorkingDir:    workingDir,
+		DebugPorts:    debugPorts,
+	}
+	WrapInMainAndHandle(artifact, debuggingContainerEvent, DebuggingContainerTerminatedEvent)
 }

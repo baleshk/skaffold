@@ -27,36 +27,31 @@ import (
 
 // RendererInProgress adds an event to mark a render process starts.
 func RendererInProgress(id int) {
-	handler.handleRenderSubtaskEvent(&proto.RenderSubtaskEvent{
+	rendererEvent := &proto.RenderStartedEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Render, handler.iteration),
 		Status: InProgress,
-	})
+	}
+	WrapInMainAndHandle(rendererEvent.Id, rendererEvent, RendererStartedEvent)
 }
 
 // RendererFailed adds an event to mark a render process has been failed.
 func RendererFailed(id int, err error) {
-	handler.handleRenderSubtaskEvent(&proto.RenderSubtaskEvent{
+	rendererEvent := &proto.RenderFailedEvent{
 		Id:            strconv.Itoa(id),
 		TaskId:        fmt.Sprintf("%s-%d", constants.Render, handler.iteration),
 		Status:        Failed,
 		ActionableErr: sErrors.ActionableErrV2(handler.cfg, constants.Render, err),
-	})
+	}
+	WrapInMainAndHandle(rendererEvent.Id, rendererEvent, RendererFailedEvent)
 }
 
 // RendererSucceeded adds an event to mark a render process has been succeeded.
 func RendererSucceeded(id int) {
-	handler.handleRenderSubtaskEvent(&proto.RenderSubtaskEvent{
+	rendererEvent := &proto.RenderSucceededEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Render, handler.iteration),
 		Status: Succeeded,
-	})
-}
-
-func (ev *eventHandler) handleRenderSubtaskEvent(e *proto.RenderSubtaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_RenderEvent{
-			RenderEvent: e,
-		},
-	})
+	}
+	WrapInMainAndHandle(rendererEvent.Id, rendererEvent, ReenderSucceededEvent)
 }

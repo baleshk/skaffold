@@ -30,52 +30,92 @@ const (
 )
 
 func CacheCheckInProgress(artifact string) {
-	buildSubtaskEvent(artifact, Cache, InProgress, nil)
+	buildEvent := &proto.BuildStartedEvent{
+		Id:            artifact,
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Cache,
+		Status:        InProgress,
+		ActionableErr: nil,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildStartedEvent)
 }
 
 func CacheCheckMiss(artifact string) {
-	buildSubtaskEvent(artifact, Cache, Failed, nil)
+	buildEvent := &proto.BuildFailedEvent{
+		Id:            artifact,
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Cache,
+		Status:        Failed,
+		ActionableErr: nil,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildFailedEvent)
 }
 
 func CacheCheckHit(artifact string) {
-	buildSubtaskEvent(artifact, Cache, Succeeded, nil)
+	buildEvent := &proto.BuildSucceededEvent{
+		Id:            artifact,
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Cache,
+		Status:        Succeeded,
+		ActionableErr: nil,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildSucceededEvent)
 }
 
 func BuildInProgress(artifact string) {
-	buildSubtaskEvent(artifact, Build, InProgress, nil)
+	buildEvent := &proto.BuildStartedEvent{
+		Id:            artifact,
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Build,
+		Status:        InProgress,
+		ActionableErr: nil,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildStartedEvent)
 }
 
 func BuildFailed(artifact string, err error) {
-	buildSubtaskEvent(artifact, Build, Failed, err)
-}
-
-func BuildSucceeded(artifact string) {
-	buildSubtaskEvent(artifact, Build, Succeeded, nil)
-}
-
-func BuildCanceled(artifact string, err error) {
-	buildSubtaskEvent(artifact, Build, Canceled, err)
-}
-
-func buildSubtaskEvent(artifact, step, status string, err error) {
 	var aErr *proto.ActionableErr
 	if err != nil {
 		aErr = sErrors.ActionableErrV2(handler.cfg, constants.Build, err)
 	}
-	handler.handleBuildSubtaskEvent(&proto.BuildSubtaskEvent{
+	buildEvent := &proto.BuildFailedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
-		Step:          step,
-		Status:        status,
+		Step:          Build,
+		Status:        Failed,
 		ActionableErr: aErr,
-	})
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildFailedEvent)
 }
 
-func (ev *eventHandler) handleBuildSubtaskEvent(e *proto.BuildSubtaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_BuildSubtaskEvent{
-			BuildSubtaskEvent: e,
-		},
-	})
+func BuildSucceeded(artifact string) {
+	buildEvent := &proto.BuildSucceededEvent{
+		Id:            artifact,
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Build,
+		Status:        Succeeded,
+		ActionableErr: nil,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildSucceededEvent)
+}
+
+func BuildCanceled(artifact string, err error) {
+	var aErr *proto.ActionableErr
+	if err != nil {
+		aErr = sErrors.ActionableErrV2(handler.cfg, constants.Build, err)
+	}
+	buildEvent := &proto.BuildCancelledEvent{
+		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
+		Artifact:      artifact,
+		Step:          Build,
+		Status:        Canceled,
+		ActionableErr: aErr,
+	}
+	WrapInMainAndHandle(artifact, buildEvent, BuildCancelledEvent)
 }

@@ -33,38 +33,41 @@ func ResourceStatusCheckEventCompleted(r string, ae proto.ActionableErr) {
 
 func ResourceStatusCheckEventCompletedMessage(r string, message string, ae proto.ActionableErr) {
 	ResourceStatusCheckEventCompleted(r, ae)
-	handler.handleSkaffoldLogEvent(&proto.SkaffoldLogEvent{
+	event := &proto.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		SubtaskId: r,
 		Message:   message,
 		Level:     -1,
-	})
+	}
+	WrapInMainAndHandle(event.TaskId, event, SkaffoldLogEvent)
 }
 
 func resourceStatusCheckEventSucceeded(r string) {
-	handler.handleStatusCheckSubtaskEvent(&proto.StatusCheckSubtaskEvent{
+	event := &proto.StatusCheckSucceededEvent{
 		Id:         r,
 		TaskId:     fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:   r,
 		Status:     Succeeded,
 		Message:    Succeeded,
 		StatusCode: proto.StatusCode_STATUSCHECK_SUCCESS,
-	})
+	}
+	WrapInMainAndHandle(r, event, StatusCheckSucceededEvent)
 }
 
 func resourceStatusCheckEventFailed(r string, ae proto.ActionableErr) {
-	handler.handleStatusCheckSubtaskEvent(&proto.StatusCheckSubtaskEvent{
+	event := &proto.StatusCheckFailedEvent{
 		Id:            r,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:      r,
 		Status:        Failed,
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
-	})
+	}
+	WrapInMainAndHandle(r, event, StatusCheckStartedEvent)
 }
 
 func ResourceStatusCheckEventUpdated(r string, ae proto.ActionableErr) {
-	handler.handleStatusCheckSubtaskEvent(&proto.StatusCheckSubtaskEvent{
+	event := &proto.StatusCheckStartedEvent{
 		Id:            r,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:      r,
@@ -72,23 +75,17 @@ func ResourceStatusCheckEventUpdated(r string, ae proto.ActionableErr) {
 		Message:       ae.Message,
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
-	})
+	}
+	WrapInMainAndHandle(r, event, StatusCheckStartedEvent)
 }
 
 func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae proto.ActionableErr) {
 	ResourceStatusCheckEventUpdated(r, ae)
-	handler.handleSkaffoldLogEvent(&proto.SkaffoldLogEvent{
+	event := &proto.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		SubtaskId: r,
 		Message:   fmt.Sprintf("%s %s\n", message, ae.Message),
 		Level:     -1,
-	})
-}
-
-func (ev *eventHandler) handleStatusCheckSubtaskEvent(e *proto.StatusCheckSubtaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_StatusCheckSubtaskEvent{
-			StatusCheckSubtaskEvent: e,
-		},
-	})
+	}
+	WrapInMainAndHandle(event.TaskId, event, SkaffoldLogEvent)
 }

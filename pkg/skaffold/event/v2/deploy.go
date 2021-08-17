@@ -26,34 +26,29 @@ import (
 )
 
 func DeployInProgress(id int) {
-	handler.handleDeploySubtaskEvent(&proto.DeploySubtaskEvent{
+	deployEvent := &proto.DeployStartedEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: InProgress,
-	})
+	}
+	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeployStartedEvent)
 }
 
 func DeployFailed(id int, err error) {
-	handler.handleDeploySubtaskEvent(&proto.DeploySubtaskEvent{
+	deployEvent := &proto.DeployFailedEvent{
 		Id:            strconv.Itoa(id),
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status:        Failed,
 		ActionableErr: sErrors.ActionableErrV2(handler.cfg, constants.Deploy, err),
-	})
+	}
+	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeployFailedEvent)
 }
 
 func DeploySucceeded(id int) {
-	handler.handleDeploySubtaskEvent(&proto.DeploySubtaskEvent{
+	deployEvent := &proto.DeploySucceededEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: Succeeded,
-	})
-}
-
-func (ev *eventHandler) handleDeploySubtaskEvent(e *proto.DeploySubtaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_DeploySubtaskEvent{
-			DeploySubtaskEvent: e,
-		},
-	})
+	}
+	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeploySucceededEvent)
 }

@@ -16,22 +16,17 @@ limitations under the License.
 
 package v2
 
-import proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+import (
+	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+)
 
 func ApplicationLog(podName, containerName, prefix, message, formattedMessage string) {
-	handler.handleApplicationLogEvent(&proto.ApplicationLogEvent{
+	event := &proto.ApplicationLogEvent{
 		ContainerName:        containerName,
 		PodName:              podName,
 		Prefix:               prefix,
 		Message:              message,
 		RichFormattedMessage: formattedMessage,
-	})
-}
-
-func (ev *eventHandler) handleApplicationLogEvent(e *proto.ApplicationLogEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_ApplicationLogEvent{
-			ApplicationLogEvent: e,
-		},
-	})
+	}
+	WrapInMainAndHandle("Id-Not-Present", event, ApplicationLogEvent)
 }

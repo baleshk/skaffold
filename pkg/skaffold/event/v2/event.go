@@ -31,6 +31,8 @@ import (
 	sErrors "github.com/GoogleContainerTools/skaffold/pkg/skaffold/errors"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/util"
 	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	proto1 "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -45,6 +47,34 @@ const (
 	Canceled   = "Canceled"
 
 	SubtaskIDNone = "-1"
+)
+
+const (
+	BuildStartedEvent                 string = "BuildStartedEvent"
+	BuildFailedEvent                  string = "BuildFailedEvent"
+	BuildSucceededEvent               string = "BuildSucceededEvent"
+	BuildCancelledEvent               string = "BuildCancelledEvent"
+	DebuggingContainerStartedEvent    string = "DebuggingContainerStartedEvent"
+	DebuggingContainerTerminatedEvent string = "DebuggingContainerTerminatedEvent"
+	DeployStartedEvent                string = "DeployStartedEvent"
+	DeployFailedEvent                 string = "DeployFailedEvent"
+	DeploySucceededEvent              string = "DeploySucceededEvent"
+	SkaffoldLogEvent                  string = "SkaffoldLogEvent"
+	MetaEvent                         string = "MetaEvent"
+	RendererStartedEvent              string = "RendererStartedEvent"
+	RendererFailedEvent               string = "RendererFailedEvent"
+	ReenderSucceededEvent             string = "ReenderSucceededEvent"
+	StatusCheckFailedEvent            string = "StatusCheckFailedEvent"
+	StatusCheckStartedEvent           string = "StatusCheckStartedEvent"
+	StatusCheckSucceededEvent         string = "StatusCheckSucceededEvent"
+	TesterFailedEvent                 string = "TesterFailedEvent"
+	TesterSucceededEvent              string = "TesterSucceededEvent"
+	TesterStartedEvent                string = "TesterStartedEvent"
+	ApplicationLogEvent               string = "ApplicationLogEvent"
+	PortForwardedEvent                string = "PortForwardedEvent"
+	FileSyncEvent                     string = "FileSyncEvent"
+	TaskStartedEvent                  string = "TaskStartedEvent"
+	TaskFailedEvent                   string = "TaskFailedEvent"
 )
 
 var handler = newHandler()
@@ -86,6 +116,12 @@ type listener struct {
 	closed   bool
 }
 
+func WrapInMainAndHandle(messageId string, event proto1.Message, eventType string) {
+	dst := &anypb.Any{}
+	anypb.MarshalFrom(dst, event, proto1.MarshalOptions{})
+	handler.handle(messageId, eventType, dst)
+}
+
 func GetIteration() int {
 	return handler.iteration
 }
@@ -105,7 +141,7 @@ func ForEachApplicationLog(callback func(*proto.Event) error) error {
 
 func Handle(event *proto.Event) error {
 	if event != nil {
-		handler.handle(event)
+		handler.handleInternal(event)
 	}
 	return nil
 }
@@ -303,38 +339,41 @@ func TaskInProgress(task constants.Phase, description string) {
 		handler.applicationLogs = []proto.Event{}
 	}
 
-	handler.handleTaskEvent(&proto.TaskEvent{
+	event := &proto.TaskStartedEvent{
 		Id:          fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:        string(task),
 		Description: description,
 		Iteration:   int32(handler.iteration),
 		Status:      InProgress,
-	})
+	}
+	WrapInMainAndHandle(event.Id, event, TaskStartedEvent)
 }
 
 func TaskFailed(task constants.Phase, err error) {
 	ae := sErrors.ActionableErrV2(handler.cfg, task, err)
-	handler.handleTaskEvent(&proto.TaskEvent{
+	event := &proto.TaskStartedEvent{
 		Id:            fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:          string(task),
 		Iteration:     int32(handler.iteration),
 		Status:        Failed,
 		ActionableErr: ae,
-	})
+	}
+	WrapInMainAndHandle(event.Id, event, TaskFailedEvent)
 }
 
 func TaskSucceeded(task constants.Phase) {
-	handler.handleTaskEvent(&proto.TaskEvent{
+	event := &proto.TaskStartedEvent{
 		Id:        fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:      string(task),
 		Iteration: int32(handler.iteration),
 		Status:    Succeeded,
-	})
+	}
+	WrapInMainAndHandle(event.Id, event, TaskStartedEvent)
 }
 
 // PortForwarded notifies that a remote port has been forwarded locally.
 func PortForwarded(localPort int32, remotePort util.IntOrString, podName, containerName, namespace string, portName string, resourceType, resourceName, address string) {
-	event := proto.PortForwardEvent{
+	event := &proto.PortForwardEvent{
 		TaskId:        fmt.Sprintf("%s-%d", constants.PortForward, handler.iteration),
 		LocalPort:     localPort,
 		PodName:       podName,
@@ -350,11 +389,8 @@ func PortForwarded(localPort int32, remotePort util.IntOrString, podName, contai
 			StrVal: remotePort.StrVal,
 		},
 	}
-	handler.handle(&proto.Event{
-		EventType: &proto.Event_PortEvent{
-			PortEvent: &event,
-		},
-	})
+
+	WrapInMainAndHandle(event.TaskId, event, PortForwardedEvent)
 }
 
 func (ev *eventHandler) setState(state proto.State) {
@@ -363,85 +399,152 @@ func (ev *eventHandler) setState(state proto.State) {
 	ev.stateLock.Unlock()
 }
 
-func (ev *eventHandler) handle(event *proto.Event) {
-	event.Timestamp = timestamppb.Now()
+func (ev *eventHandler) handle(id string, eventtype string, dst *anypb.Any) {
+	event := &proto.Event{Id: id, Type: eventtype, Data: dst}
+	ev.handleInternal(event)
+}
+
+func (ev *eventHandler) handleInternal(event *proto.Event) {
+	event.Time = timestamppb.Now()
 	ev.eventChan <- event
-	if _, ok := event.GetEventType().(*proto.Event_TerminationEvent); ok {
+	if event.Type == "terminationEvent" {
 		// close the event channel indicating there are no more events to all the
 		// receivers
 		close(ev.eventChan)
 	}
 }
 
-func (ev *eventHandler) handleTaskEvent(e *proto.TaskEvent) {
-	ev.handle(&proto.Event{
-		EventType: &proto.Event_TaskEvent{
-			TaskEvent: e,
-		},
-	})
-}
-
 func (ev *eventHandler) handleExec(event *proto.Event) {
-	switch e := event.GetEventType().(type) {
-	case *proto.Event_ApplicationLogEvent:
+	switch event.Type {
+	case ApplicationLogEvent:
 		ev.logApplicationLog(event)
 		return
-	case *proto.Event_BuildSubtaskEvent:
-		be := e.BuildSubtaskEvent
-		if be.Step == Build {
+	case BuildSucceededEvent:
+		var buildEvent *proto.BuildSucceededEvent
+		json.Unmarshal(event.Data.Value, buildEvent)
+		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
-			ev.state.BuildState.Artifacts[be.Artifact] = be.Status
+			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
 			ev.stateLock.Unlock()
 		}
-	case *proto.Event_TestEvent:
-		te := e.TestEvent
+	case BuildStartedEvent:
+		var buildEvent *proto.BuildStartedEvent
+		json.Unmarshal(event.Data.Value, buildEvent)
+		if buildEvent.Step == Build {
+			ev.stateLock.Lock()
+			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
+			ev.stateLock.Unlock()
+		}
+	case BuildFailedEvent:
+		var buildEvent *proto.BuildFailedEvent
+		json.Unmarshal(event.Data.Value, buildEvent)
+		if buildEvent.Step == Build {
+			ev.stateLock.Lock()
+			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
+			ev.stateLock.Unlock()
+		}
+	case BuildCancelledEvent:
+		var buildEvent *proto.BuildCancelledEvent
+		json.Unmarshal(event.Data.Value, buildEvent)
+		if buildEvent.Step == Build {
+			ev.stateLock.Lock()
+			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
+			ev.stateLock.Unlock()
+		}
+	case TesterFailedEvent:
+		var te *proto.TestFailedEvent
+		json.Unmarshal(event.Data.Value, te)
 		ev.stateLock.Lock()
 		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
-	case *proto.Event_RenderEvent:
-		te := e.RenderEvent
+	case TesterStartedEvent:
+		var te *proto.TestStartedEvent
+		json.Unmarshal(event.Data.Value, te)
 		ev.stateLock.Lock()
-		ev.state.RenderState.Status = te.Status
+		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
-	case *proto.Event_DeploySubtaskEvent:
-		de := e.DeploySubtaskEvent
+	case RendererFailedEvent:
+		var re *proto.RenderFailedEvent
+		json.Unmarshal(event.Data.Value, re)
+		ev.stateLock.Lock()
+		ev.state.RenderState.Status = re.Status
+		ev.stateLock.Unlock()
+	case ReenderSucceededEvent:
+		var re *proto.RenderSucceededEvent
+		json.Unmarshal(event.Data.Value, re)
+		ev.stateLock.Lock()
+		ev.state.RenderState.Status = re.Status
+		ev.stateLock.Unlock()
+	case RendererStartedEvent:
+		var de *proto.DeployStartedEvent
+		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
-	case *proto.Event_PortEvent:
-		pe := e.PortEvent
+	case DeployFailedEvent:
+		var de *proto.DeployFailedEvent
+		json.Unmarshal(event.Data.Value, de)
+		ev.stateLock.Lock()
+		ev.state.DeployState.Status = de.Status
+		ev.stateLock.Unlock()
+	case DeploySucceededEvent:
+		var de *proto.DeploySucceededEvent
+		json.Unmarshal(event.Data.Value, de)
+		ev.stateLock.Lock()
+		ev.state.DeployState.Status = de.Status
+		ev.stateLock.Unlock()
+	case PortForwardedEvent:
+		var pe *proto.PortForwardEvent
+		json.Unmarshal(event.Data.Value, pe)
 		ev.stateLock.Lock()
 		if ev.state.ForwardedPorts == nil {
 			ev.state.ForwardedPorts = map[int32]*proto.PortForwardEvent{}
 		}
 		ev.state.ForwardedPorts[pe.LocalPort] = pe
 		ev.stateLock.Unlock()
-	case *proto.Event_StatusCheckSubtaskEvent:
-		se := e.StatusCheckSubtaskEvent
+	case StatusCheckStartedEvent:
+		var se *proto.StatusCheckStartedEvent
+		json.Unmarshal(event.Data.Value, se)
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
-	case *proto.Event_FileSyncEvent:
-		fse := e.FileSyncEvent
+	case StatusCheckSucceededEvent:
+		var se *proto.StatusCheckSucceededEvent
+		json.Unmarshal(event.Data.Value, se)
+		ev.stateLock.Lock()
+		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
+		ev.stateLock.Unlock()
+	case StatusCheckFailedEvent:
+		var se *proto.StatusCheckFailedEvent
+		json.Unmarshal(event.Data.Value, se)
+		ev.stateLock.Lock()
+		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
+		ev.stateLock.Unlock()
+	case FileSyncEvent:
+		var fse *proto.FileSyncEvent
+		json.Unmarshal(event.Data.Value, fse)
 		ev.stateLock.Lock()
 		ev.state.FileSyncState.Status = fse.Status
 		ev.stateLock.Unlock()
-	case *proto.Event_DebuggingContainerEvent:
-		de := e.DebuggingContainerEvent
+	case DebuggingContainerStartedEvent:
+		var de *proto.DebuggingContainerStartedEvent
+		json.Unmarshal(event.Data.Value, de)
 		ev.stateLock.Lock()
-		switch de.Status {
-		case Started:
-			ev.state.DebuggingContainers = append(ev.state.DebuggingContainers, de)
-		case Terminated:
-			n := 0
-			for _, x := range ev.state.DebuggingContainers {
-				if x.Namespace != de.Namespace || x.PodName != de.PodName || x.ContainerName != de.ContainerName {
-					ev.state.DebuggingContainers[n] = x
-					n++
-				}
+		//Todo: copy state from event and replace nil
+		//ev.state.DebuggingContainerState = append(ev.state.DebuggingContainerState, )
+		ev.stateLock.Unlock()
+	case DebuggingContainerTerminatedEvent:
+		var de *proto.DebuggingContainerTerminatedEvent
+		json.Unmarshal(event.Data.Value, de)
+		ev.stateLock.Lock()
+		n := 0
+		for _, x := range ev.state.DebuggingContainers {
+			if x.Namespace != de.Namespace || x.PodName != de.PodName || x.ContainerName != de.ContainerName {
+				ev.state.DebuggingContainers[n] = x
+				n++
 			}
-			ev.state.DebuggingContainers = ev.state.DebuggingContainers[:n]
 		}
+		ev.state.DebuggingContainers = ev.state.DebuggingContainers[:n]
 		ev.stateLock.Unlock()
 	}
 	ev.logEvent(event)

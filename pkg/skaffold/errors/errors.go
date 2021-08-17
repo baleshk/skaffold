@@ -58,8 +58,10 @@ func ActionableErrV2(cfg interface{}, phase constants.Phase, err error) *protoV2
 	errCode, suggestions := getErrorCodeFromError(cfg, phase, err)
 	suggestionsV2 := make([]*protoV2.Suggestion, len(suggestions))
 	for i, suggestion := range suggestions {
-		converted := protoV2.Suggestion(*suggestion)
-		suggestionsV2[i] = &converted
+		//converted := protoV2.Suggestion(*suggestion)
+		suggestionsV2[i].SuggestionCode = suggestion.SuggestionCode
+		suggestionsV2[i].Action = suggestion.Action
+		//suggestionsV2[i] = &converted
 	}
 	return &protoV2.ActionableErr{
 		ErrCode:     errCode,
@@ -71,8 +73,10 @@ func ActionableErrV2(cfg interface{}, phase constants.Phase, err error) *protoV2
 func V2fromV1(ae proto.ActionableErr) protoV2.ActionableErr {
 	suggestionsV2 := make([]*protoV2.Suggestion, len(ae.Suggestions))
 	for i, suggestion := range ae.Suggestions {
-		converted := protoV2.Suggestion(*suggestion)
-		suggestionsV2[i] = &converted
+		suggestionsV2[i].SuggestionCode = suggestion.SuggestionCode
+		suggestionsV2[i].Action = suggestion.Action
+		//converted := protoV2.Suggestion(*suggestion)
+		//suggestionsV2[i] = &converted
 	}
 	return protoV2.ActionableErr{
 		ErrCode:     ae.ErrCode,
