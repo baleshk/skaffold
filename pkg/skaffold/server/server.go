@@ -26,17 +26,16 @@ import (
 	"time"
 
 	runtimeV2 "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	v2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/server/v2"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
-	"github.com/GoogleContainerTools/skaffold/proto/v1"
+    "github.com/GoogleContainerTools/skaffold/proto/v1"
 	protoV2 "github.com/GoogleContainerTools/skaffold/proto/v2"
 )
 
@@ -192,7 +191,20 @@ func newGRPCServer(preferredPort int, usedPorts *util.PortSet) (func() error, in
 }
 
 func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func() error, error) {
-	muxV2 := runtimeV2.NewServeMux()
+	muxV2 := runtimeV2.NewServeMux(
+		runtimeV2.WithErrorHandler(errorHandlerV2),
+		runtimeV2.WithMarshalerOption(runtimeV2.MIMEWildcard, &runtimeV2.HTTPBodyMarshaler{
+			Marshaler: &runtimeV2.JSONPb{
+				MarshalOptions: protojson.MarshalOptions{
+					UseProtoNames:   true,
+					EmitUnpopulated: true,
+				},
+				UnmarshalOptions: protojson.UnmarshalOptions{
+					DiscardUnknown: true,
+				},
+			},
+		}),
+	)
 	//mux := runtime.NewServeMux(runtime.WithProtoErrorHandler(errorHandler), runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	//err := proto.RegisterSkaffoldServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
@@ -234,10 +246,21 @@ type errResponse struct {
 	Err string `json:"error,omitempty"`
 }
 
-func errorHandler(ctx context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, writer http.ResponseWriter, _ *http.Request, err error) {
-	writer.Header().Set("Content-type", marshaler.ContentType())
+// func errorHandler(ctx context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, writer http.ResponseWriter, _ *http.Request, err error) {
+// 	writer.Header().Set("Content-type", marshaler.ContentType())
+// 	s, _ := status.FromError(err)
+// 	writer.WriteHeader(runtime.HTTPStatusFromCode(s.Code()))
+// 	if err := json.NewEncoder(writer).Encode(errResponse{
+// 		Err: s.Message(),
+// 	}); err != nil {
+// 		writer.Write([]byte(`{"error": "failed to marshal error message"}`))
+// 	}
+// }
+
+func errorHandlerV2(ctx context.Context, _ *runtimeV2.ServeMux, marshaler runtimeV2.Marshaler, writer http.ResponseWriter, _ *http.Request, err error) {
+	//writer.Header().Set("Content-type", marshaler.ContentType(protoreflect.ProtoMessage)) //Todo: Help requried in figure out type that is being marshalled
 	s, _ := status.FromError(err)
-	writer.WriteHeader(runtime.HTTPStatusFromCode(s.Code()))
+	writer.WriteHeader(runtimeV2.HTTPStatusFromCode(s.Code()))
 	if err := json.NewEncoder(writer).Encode(errResponse{
 		Err: s.Message(),
 	}); err != nil {
