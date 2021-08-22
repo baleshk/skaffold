@@ -16,17 +16,15 @@ limitations under the License.
 
 package v3
 
-import (
-	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
+var (
+	Srv *Server
 )
 
-func ApplicationLog(podName, containerName, prefix, message, formattedMessage string) {
-	event := &protoV3.ApplicationLogEvent{
-		ContainerName:        containerName,
-		PodName:              podName,
-		Prefix:               prefix,
-		Message:              message,
-		RichFormattedMessage: formattedMessage,
-	}
-	handler.handle("Id-Not-Present", event, ApplicationLogEvent)
+type Server struct {
+	BuildIntentCallback  func()
+	SyncIntentCallback   func()
+	DeployIntentCallback func()
+	AutoBuildCallback    func(bool)
+	AutoSyncCallback     func(bool)
+	AutoDeployCallback   func(bool)
 }

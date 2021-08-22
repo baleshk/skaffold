@@ -26,6 +26,7 @@ import (
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/instrumentation"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output"
@@ -99,6 +100,7 @@ See https://skaffold.dev/docs/pipeline-stages/taggers/#how-tagging-works`)
 
 	event.DeployInProgress()
 	eventV2.TaskInProgress(constants.Deploy, "Deploy to cluster")
+	eventV3.TaskInProgress(constants.Deploy, "Deploy to cluster")
 	ctx, endTrace := instrumentation.StartTrace(ctx, "Deploy_Deploying")
 	defer endTrace()
 
@@ -122,6 +124,7 @@ See https://skaffold.dev/docs/pipeline-stages/taggers/#how-tagging-works`)
 	if err != nil {
 		event.DeployFailed(err)
 		eventV2.TaskFailed(constants.Deploy, err)
+		eventV3.TaskFailed(constants.Deploy, err)
 		endTrace(instrumentation.TraceEndError(err))
 		return err
 	}
@@ -138,10 +141,12 @@ See https://skaffold.dev/docs/pipeline-stages/taggers/#how-tagging-works`)
 		// run final aggregated status check only if iterative status check is turned off.
 		if err = r.deployer.GetStatusMonitor().Check(ctx, statusCheckOut); err != nil {
 			eventV2.TaskFailed(constants.Deploy, err)
+			eventV3.TaskFailed(constants.Deploy, err)
 			return err
 		}
 	}
 	eventV2.TaskSucceeded(constants.Deploy)
+	eventV3.TaskSucceeded(constants.Deploy)
 	return nil
 }
 

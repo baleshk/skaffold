@@ -24,16 +24,19 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output/log"
+	"github.com/sirupsen/logrus"
 )
 
 const timestampFormat = "2006-01-02 15:04:05"
 
 type skaffoldWriter struct {
-	MainWriter  io.Writer
-	EventWriter io.Writer
-	task        constants.Phase
-	subtask     string
+	MainWriter    io.Writer
+	EventWriter   io.Writer
+	EventWriterV3 io.Writer
+	task          constants.Phase
+	subtask       string
 
 	timestamps bool
 }
@@ -60,6 +63,7 @@ func (s skaffoldWriter) Write(p []byte) (int, error) {
 	written += n
 
 	s.EventWriter.Write(p)
+	s.EventWriterV3.Write(p)
 
 	return written, nil
 }
@@ -70,9 +74,10 @@ func GetWriter(ctx context.Context, out io.Writer, defaultColor int, forceColors
 	}
 
 	return skaffoldWriter{
-		MainWriter:  SetupColors(ctx, out, defaultColor, forceColors),
-		EventWriter: eventV2.NewLogger(constants.DevLoop, "-1"),
-		timestamps:  timestamps,
+		MainWriter:    SetupColors(out, defaultColor, forceColors),
+		EventWriter:   eventV2.NewLogger(constants.DevLoop, "-1"),
+		EventWriterV3: eventV3.NewLogger(constants.DevLoop, "-1"),
+		timestamps:    timestamps,
 	}
 }
 
@@ -111,12 +116,27 @@ func WithEventContext(ctx context.Context, out io.Writer, phase constants.Phase,
 
 	if sw, isSW := out.(skaffoldWriter); isSW {
 		return skaffoldWriter{
-			MainWriter:  sw.MainWriter,
-			EventWriter: eventV2.NewLogger(phase, subtaskID),
-			task:        phase,
-			subtask:     subtaskID,
-			timestamps:  sw.timestamps,
-		}, ctx
+			MainWriter:    sw.MainWriter,
+			EventWriter:   eventV2.NewLogger(phase, subtaskID),
+			EventWriterV3: eventV3.NewLogger(phase, subtaskID),
+			task:          phase,
+			subtask:       subtaskID,
+			timestamps:    sw.timestamps,
+		}
+	}
+
+	return out
+}
+
+// Log takes an io.Writer (ideally of type output.skaffoldWriter) and constructs
+// a logrus.Entry from it, adding fields for task and subtask information
+func Log(out io.Writer) *logrus.Entry {
+	sw, isSW := out.(skaffoldWriter)
+	if isSW {
+		return logrus.WithFields(logrus.Fields{
+			"task":    sw.task,
+			"subtask": sw.subtask,
+		})
 	}
 
 	return out, ctx

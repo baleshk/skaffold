@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"fmt"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	sErrors "github.com/GoogleContainerTools/skaffold/pkg/skaffold/errors"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 )
 
 func CacheCheckInProgress(artifact string) {
-	buildEvent := &proto.BuildStartedEvent{
+	buildEvent := &protoV3.BuildStartedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -38,11 +38,11 @@ func CacheCheckInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildStartedEvent)
+	handler.handle(artifact, buildEvent, BuildStartedEvent)
 }
 
 func CacheCheckMiss(artifact string) {
-	buildEvent := &proto.BuildFailedEvent{
+	buildEvent := &protoV3.BuildFailedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -50,11 +50,11 @@ func CacheCheckMiss(artifact string) {
 		Status:        Failed,
 		ActionableErr: nil,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildFailedEvent)
+	handler.handle(artifact, buildEvent, BuildFailedEvent)
 }
 
 func CacheCheckHit(artifact string) {
-	buildEvent := &proto.BuildSucceededEvent{
+	buildEvent := &protoV3.BuildSucceededEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -62,11 +62,12 @@ func CacheCheckHit(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildSucceededEvent)
+	handler.handle(artifact, buildEvent, BuildSucceededEvent)
 }
 
 func BuildInProgress(artifact string) {
-	buildEvent := &proto.BuildStartedEvent{
+	fmt.Println("Build Started event")
+	buildEvent := &protoV3.BuildStartedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -74,15 +75,15 @@ func BuildInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildStartedEvent)
+	handler.handle(artifact, buildEvent, BuildStartedEvent)
 }
 
 func BuildFailed(artifact string, err error) {
-	var aErr *proto.ActionableErr
+	var aErr *protoV3.ActionableErr
 	if err != nil {
-		aErr = sErrors.ActionableErrV2(handler.cfg, constants.Build, err)
+		aErr = sErrors.ActionableErrV3(handler.cfg, constants.Build, err)
 	}
-	buildEvent := &proto.BuildFailedEvent{
+	buildEvent := &protoV3.BuildFailedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -90,11 +91,11 @@ func BuildFailed(artifact string, err error) {
 		Status:        Failed,
 		ActionableErr: aErr,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildFailedEvent)
+	handler.handle(artifact, buildEvent, BuildFailedEvent)
 }
 
 func BuildSucceeded(artifact string) {
-	buildEvent := &proto.BuildSucceededEvent{
+	buildEvent := &protoV3.BuildSucceededEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
@@ -102,20 +103,20 @@ func BuildSucceeded(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildSucceededEvent)
+	handler.handle(artifact, buildEvent, BuildSucceededEvent)
 }
 
 func BuildCanceled(artifact string, err error) {
-	var aErr *proto.ActionableErr
+	var aErr *protoV3.ActionableErr
 	if err != nil {
-		aErr = sErrors.ActionableErrV2(handler.cfg, constants.Build, err)
+		aErr = sErrors.ActionableErrV3(handler.cfg, constants.Build, err)
 	}
-	buildEvent := &proto.BuildCancelledEvent{
+	buildEvent := &protoV3.BuildCancelledEvent{
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
 		Artifact:      artifact,
 		Step:          Build,
 		Status:        Canceled,
 		ActionableErr: aErr,
 	}
-	WrapInMainAndHandle(artifact, buildEvent, BuildCancelledEvent)
+	handler.handle(artifact, buildEvent, BuildCancelledEvent)
 }

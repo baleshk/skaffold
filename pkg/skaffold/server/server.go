@@ -33,9 +33,11 @@ import (
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output/log"
 	v2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/server/v2"
+	v3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/server/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 	protoV1 "github.com/GoogleContainerTools/skaffold/proto/v1"
 	protoV2 "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 const maxTryListen = 10
@@ -167,8 +169,18 @@ func newGRPCServer(preferredPort int, usedPorts *util.PortSet) (func() error, in
 		AutoSyncCallback:     func(bool) {},
 		AutoDeployCallback:   func(bool) {},
 	}
+	v3.Srv = &v3.Server{
+		BuildIntentCallback:  func() {},
+		DeployIntentCallback: func() {},
+		SyncIntentCallback:   func() {},
+		AutoBuildCallback:    func(bool) {},
+		AutoSyncCallback:     func(bool) {},
+		AutoDeployCallback:   func(bool) {},
+	}
+
 	protoV1.RegisterSkaffoldServiceServer(s, srv)
 	protoV2.RegisterSkaffoldV2ServiceServer(s, v2.Srv)
+	protoV3.RegisterSkaffoldV3ServiceServer(s, v3.Srv)
 
 	go func() {
 		if err := s.Serve(l); err != nil {
@@ -214,6 +226,11 @@ func newHTTPServer(preferredPort, proxyPort int, usedPorts *util.PortSet) (func(
 		return func() error { return nil }, err
 	}
 	err = protoV2.RegisterSkaffoldV2ServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
+	if err != nil {
+		return func() error { return nil }, err
+	}
+
+	err = protoV3.RegisterSkaffoldV3ServiceHandlerFromEndpoint(context.Background(), mux, fmt.Sprintf("%s:%d", util.Loopback, proxyPort), opts)
 	if err != nil {
 		return func() error { return nil }, err
 	}

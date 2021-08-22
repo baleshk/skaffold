@@ -14,48 +14,48 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"fmt"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
-func ResourceStatusCheckEventCompleted(r string, ae proto.ActionableErr) {
-	if ae.ErrCode != proto.StatusCode_STATUSCHECK_SUCCESS {
+func ResourceStatusCheckEventCompleted(r string, ae protoV3.ActionableErr) {
+	if ae.ErrCode != protoV3.StatusCode_STATUSCHECK_SUCCESS {
 		resourceStatusCheckEventFailed(r, ae)
 		return
 	}
 	resourceStatusCheckEventSucceeded(r)
 }
 
-func ResourceStatusCheckEventCompletedMessage(r string, message string, ae proto.ActionableErr) {
+func ResourceStatusCheckEventCompletedMessage(r string, message string, ae protoV3.ActionableErr) {
 	ResourceStatusCheckEventCompleted(r, ae)
-	event := &proto.SkaffoldLogEvent{
+	event := &protoV3.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		SubtaskId: r,
 		Message:   message,
 		Level:     -1,
 	}
-	WrapInMainAndHandle(event.TaskId, event, SkaffoldLogEvent)
+	handler.handle(event.TaskId, event, SkaffoldLogEvent)
 }
 
 func resourceStatusCheckEventSucceeded(r string) {
-	event := &proto.StatusCheckSucceededEvent{
+	event := &protoV3.StatusCheckSucceededEvent{
 		Id:         r,
 		TaskId:     fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:   r,
 		Status:     Succeeded,
 		Message:    Succeeded,
-		StatusCode: proto.StatusCode_STATUSCHECK_SUCCESS,
+		StatusCode: protoV3.StatusCode_STATUSCHECK_SUCCESS,
 	}
-	WrapInMainAndHandle(r, event, StatusCheckSucceededEvent)
+	handler.handle(r, event, StatusCheckSucceededEvent)
 }
 
-func resourceStatusCheckEventFailed(r string, ae proto.ActionableErr) {
-	event := &proto.StatusCheckFailedEvent{
+func resourceStatusCheckEventFailed(r string, ae protoV3.ActionableErr) {
+	event := &protoV3.StatusCheckFailedEvent{
 		Id:            r,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:      r,
@@ -63,11 +63,11 @@ func resourceStatusCheckEventFailed(r string, ae proto.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	WrapInMainAndHandle(r, event, StatusCheckStartedEvent)
+	handler.handle(r, event, StatusCheckFailedEvent)
 }
 
-func ResourceStatusCheckEventUpdated(r string, ae proto.ActionableErr) {
-	event := &proto.StatusCheckStartedEvent{
+func ResourceStatusCheckEventUpdated(r string, ae protoV3.ActionableErr) {
+	event := &protoV3.StatusCheckStartedEvent{
 		Id:            r,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Resource:      r,
@@ -76,16 +76,16 @@ func ResourceStatusCheckEventUpdated(r string, ae proto.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	WrapInMainAndHandle(r, event, StatusCheckStartedEvent)
+	handler.handle(r, event, StatusCheckStartedEvent)
 }
 
-func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae proto.ActionableErr) {
+func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae protoV3.ActionableErr) {
 	ResourceStatusCheckEventUpdated(r, ae)
-	event := &proto.SkaffoldLogEvent{
+	event := &protoV3.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		SubtaskId: r,
 		Message:   fmt.Sprintf("%s %s\n", message, ae.Message),
 		Level:     -1,
 	}
-	WrapInMainAndHandle(event.TaskId, event, SkaffoldLogEvent)
+	handler.handle(event.TaskId, event, SkaffoldLogEvent)
 }

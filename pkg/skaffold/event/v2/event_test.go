@@ -86,7 +86,7 @@ func TestGetState(t *testing.T) {
 
 	state := ev.getState()
 
-	testutil.CheckDeepEqual(t, Complete, state.BuildState.Artifacts["img"])
+	testutil.CheckDeepEqual(t, "Complete", state.BuildState.Artifacts["img"])
 }
 
 func wait(t *testing.T, condition func() bool) {

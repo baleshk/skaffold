@@ -14,23 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"testing"
 
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protov3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 func TestResourceStatusCheckEventUpdated(t *testing.T) {
+	
 	defer func() { handler = newHandler() }()
-
-	handler = newHandler()
 	handler.state = emptyState(mockCfg([]latestV1.Pipeline{{}}, "test"))
 
 	wait(t, func() bool { return handler.getState().StatusCheckState.Status == NotStarted })
-	ResourceStatusCheckEventUpdated("ns:pod/foo", proto.ActionableErr{
+	ResourceStatusCheckEventUpdated("ns:pod/foo", protov3.ActionableErr{
 		ErrCode: 509,
 		Message: "image pull error",
 	})
@@ -39,8 +38,6 @@ func TestResourceStatusCheckEventUpdated(t *testing.T) {
 
 func TestResourceStatusCheckEventSucceeded(t *testing.T) {
 	defer func() { handler = newHandler() }()
-
-	handler = newHandler()
 	handler.state = emptyState(mockCfg([]latestV1.Pipeline{{}}, "test"))
 
 	wait(t, func() bool { return handler.getState().StatusCheckState.Status == NotStarted })
@@ -50,12 +47,10 @@ func TestResourceStatusCheckEventSucceeded(t *testing.T) {
 
 func TestResourceStatusCheckEventFailed(t *testing.T) {
 	defer func() { handler = newHandler() }()
-
-	handler = newHandler()
 	handler.state = emptyState(mockCfg([]latestV1.Pipeline{{}}, "test"))
 
 	wait(t, func() bool { return handler.getState().StatusCheckState.Status == NotStarted })
-	resourceStatusCheckEventFailed("ns:pod/foo", proto.ActionableErr{
+	resourceStatusCheckEventFailed("ns:pod/foo", protov3.ActionableErr{
 		ErrCode: 309,
 		Message: "one or more deployments failed",
 	})

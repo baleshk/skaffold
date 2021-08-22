@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"testing"
@@ -40,6 +40,7 @@ func TestDebuggingContainer(t *testing.T) {
 	wait(t, notFound)
 	DebuggingContainerStarted("pod", "container", "ns", "artifact", "runtime", "/", nil)
 	wait(t, found)
+
 	DebuggingContainerTerminated("pod", "container", "ns", "artifact", "runtime", "/", nil)
 	wait(t, notFound)
 }

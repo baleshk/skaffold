@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	"github.com/GoogleContainerTools/skaffold/proto/enums"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 type logger struct {
@@ -40,7 +40,7 @@ func NewLogger(phase constants.Phase, subtaskID string) io.Writer {
 }
 
 func (l logger) Write(p []byte) (int, error) {
-	handler.handleSkaffoldLogEvent(&proto.SkaffoldLogEvent{
+	handler.handleSkaffoldLogEvent(&protoV3.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", l.Phase, handler.iteration),
 		SubtaskId: l.SubtaskID,
 		Level:     -1,
@@ -50,8 +50,8 @@ func (l logger) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (ev *eventHandler) handleSkaffoldLogEvent(e *proto.SkaffoldLogEvent) {
-	WrapInMainAndHandle("Id-skaffoldLog", e, SkaffoldLogEvent)
+func (ev *eventHandler) handleSkaffoldLogEvent(e *protoV3.SkaffoldLogEvent) {
+	ev.handle("Id-skaffoldLog", e, SkaffoldLogEvent)
 }
 
 // logHook is an implementation of logrus.Hook used to send SkaffoldLogEvents
@@ -82,7 +82,7 @@ func (h logHook) Levels() []logrus.Level {
 
 // Fire constructs a SkaffoldLogEvent and sends it to the event channel
 func (h logHook) Fire(entry *logrus.Entry) error {
-	handler.handleSkaffoldLogEvent(&proto.SkaffoldLogEvent{
+	handler.handleSkaffoldLogEvent(&protoV3.SkaffoldLogEvent{
 		TaskId:    fmt.Sprintf("%s-%d", h.task, handler.iteration),
 		SubtaskId: h.subtask,
 		Level:     levelFromEntry(entry),

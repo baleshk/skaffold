@@ -28,6 +28,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output/log"
@@ -64,7 +65,8 @@ func (r *Builder) GetBuilds() []graph.Artifact {
 // Build builds a list of artifacts.
 func (r *Builder) Build(ctx context.Context, out io.Writer, artifacts []*latestV1.Artifact) ([]graph.Artifact, error) {
 	eventV2.TaskInProgress(constants.Build, "Build containers")
-	out, ctx = output.WithEventContext(ctx, out, constants.Build, constants.SubtaskIDNone)
+	eventV3.TaskInProgress(constants.Build, "Build containers")
+	out = output.WithEventContext(out, constants.Build, eventV2.SubtaskIDNone)
 
 	// Use tags directly from the Kubernetes manifests.
 	if r.runCtx.DigestSource() == NoneDigestSource {
@@ -73,12 +75,14 @@ func (r *Builder) Build(ctx context.Context, out io.Writer, artifacts []*latestV
 
 	if err := CheckWorkspaces(artifacts); err != nil {
 		eventV2.TaskFailed(constants.Build, err)
+		eventV3.TaskFailed(constants.Build, err)
 		return nil, err
 	}
 
 	tags, err := r.imageTags(ctx, out, artifacts)
 	if err != nil {
 		eventV2.TaskFailed(constants.Build, err)
+		eventV3.TaskFailed(constants.Build, err)
 		return nil, err
 	}
 
@@ -112,6 +116,7 @@ func (r *Builder) Build(ctx context.Context, out io.Writer, artifacts []*latestV
 	})
 	if err != nil {
 		eventV2.TaskFailed(constants.Build, err)
+		eventV3.TaskFailed(constants.Build, err)
 		return nil, err
 	}
 
@@ -119,6 +124,7 @@ func (r *Builder) Build(ctx context.Context, out io.Writer, artifacts []*latestV
 	r.Builds = build.MergeWithPreviousBuilds(bRes, r.Builds)
 
 	eventV2.TaskSucceeded(constants.Build)
+	eventV3.TaskSucceeded(constants.Build)
 	return bRes, nil
 }
 

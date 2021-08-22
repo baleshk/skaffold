@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"errors"
@@ -28,40 +28,50 @@ import (
 	//nolint:golint,staticcheck
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	proto "google.golang.org/protobuf/proto"
+	proto1 "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
 
-var targetPort = proto.IntOrString{Type: 0, IntVal: 2001}
+var targetPort = protoV3.IntOrString{Type: 0, IntVal: 2001}
 
 func TestGetLogEvents(t *testing.T) {
 	for step := 0; step < 1000; step++ {
-		ev := newHandler()
+		eventInAnyFormat := &anypb.Any{}
 
-		ev.logEvent(&proto.Event{
-			EventType: &proto.Event_SkaffoldLogEvent{
-				SkaffoldLogEvent: &proto.SkaffoldLogEvent{Message: "OLD"},
-			},
-		})
+		anypb.MarshalFrom(eventInAnyFormat, &protoV3.SkaffoldLogEvent{
+			Message: "OLD"}, proto.MarshalOptions{})
+
+		ev := newHandler()
+		ev.logEvent(&protoV3.Event{
+			Type: SkaffoldLogEvent, Data: eventInAnyFormat})
+
 		go func() {
-			ev.logEvent(&proto.Event{
-				EventType: &proto.Event_SkaffoldLogEvent{
-					SkaffoldLogEvent: &proto.SkaffoldLogEvent{Message: "FRESH"},
-				},
-			})
-			ev.logEvent(&proto.Event{
-				EventType: &proto.Event_SkaffoldLogEvent{
-					SkaffoldLogEvent: &proto.SkaffoldLogEvent{Message: "POISON PILL"},
-				},
-			})
+			localEvent1 := &anypb.Any{}
+			anypb.MarshalFrom(localEvent1, &protoV3.SkaffoldLogEvent{
+				Message: "FRESH"}, proto.MarshalOptions{})
+			ev.logEvent(&protoV3.Event{
+				Type: SkaffoldLogEvent, Data: localEvent1})
+
+			localEvent2 := &anypb.Any{}
+			anypb.MarshalFrom(localEvent2, &protoV3.SkaffoldLogEvent{
+				Message: "POISON PILL"}, proto.MarshalOptions{})
+			ev.logEvent(&protoV3.Event{
+				Type: SkaffoldLogEvent, Data: localEvent2})
+
 		}()
 
 		var received int32
-		ev.forEachEvent(func(e *proto.Event) error {
-			if e.GetSkaffoldLogEvent().Message == "POISON PILL" {
+		ev.forEachEvent(func(e *protoV3.Event) error {
+			se := &protoV3.SkaffoldLogEvent{}
+			anypb.UnmarshalTo(e.Data, se, proto1.UnmarshalOptions{})
+
+			if se.Message == "POISON PILL" {
 				return errors.New("Done")
 			}
 
@@ -111,103 +121,103 @@ func wait(t *testing.T, condition func() bool) {
 func TestResetStateOnBuild(t *testing.T) {
 	defer func() { handler = newHandler() }()
 	handler = newHandler()
-	handler.state = proto.State{
-		BuildState: &proto.BuildState{
+	handler.state = protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": Complete,
 			},
 		},
-		RenderState: &proto.RenderState{Status: Complete},
-		DeployState: &proto.DeployState{Status: Complete},
-		ForwardedPorts: map[int32]*proto.PortForwardEvent{
+		RenderState: &protoV3.RenderState{Status: Complete},
+		DeployState: &protoV3.DeployState{Status: Complete},
+		ForwardedPorts: map[int32]*protoV3.PortForwardEvent{
 			2001: {
 				LocalPort:  2000,
 				PodName:    "test/pod",
 				TargetPort: &targetPort,
 			},
 		},
-		StatusCheckState: &proto.StatusCheckState{Status: Complete},
-		FileSyncState:    &proto.FileSyncState{Status: Succeeded},
+		StatusCheckState: &protoV3.StatusCheckState{Status: Complete},
+		FileSyncState:    &protoV3.FileSyncState{Status: Succeeded},
 	}
 
 	ResetStateOnBuild()
-	expected := proto.State{
-		BuildState: &proto.BuildState{
+	expected := protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": NotStarted,
 			},
 		},
-		TestState:        &proto.TestState{Status: NotStarted},
-		RenderState:      &proto.RenderState{Status: NotStarted},
-		DeployState:      &proto.DeployState{Status: NotStarted},
-		StatusCheckState: &proto.StatusCheckState{Status: NotStarted, Resources: map[string]string{}},
-		FileSyncState:    &proto.FileSyncState{Status: NotStarted},
+		TestState:        &protoV3.TestState{Status: NotStarted},
+		RenderState:      &protoV3.RenderState{Status: NotStarted},
+		DeployState:      &protoV3.DeployState{Status: NotStarted},
+		StatusCheckState: &protoV3.StatusCheckState{Status: NotStarted, Resources: map[string]string{}},
+		FileSyncState:    &protoV3.FileSyncState{Status: NotStarted},
 	}
-	testutil.CheckDeepEqual(t, expected, handler.getState(), cmpopts.EquateEmpty())
+	testutil.CheckDeepEqualProtoMessage(t, expected, handler.getState(), cmpopts.EquateEmpty())
 }
 
 func TestResetStateOnDeploy(t *testing.T) {
 	defer func() { handler = newHandler() }()
 	handler = newHandler()
-	handler.state = proto.State{
-		BuildState: &proto.BuildState{
+	handler.state = protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": Complete,
 			},
 		},
-		DeployState: &proto.DeployState{Status: Complete},
-		ForwardedPorts: map[int32]*proto.PortForwardEvent{
+		DeployState: &protoV3.DeployState{Status: Complete},
+		ForwardedPorts: map[int32]*protoV3.PortForwardEvent{
 			2001: {
 				LocalPort:  2000,
 				PodName:    "test/pod",
 				TargetPort: &targetPort,
 			},
 		},
-		StatusCheckState: &proto.StatusCheckState{Status: Complete},
+		StatusCheckState: &protoV3.StatusCheckState{Status: Complete},
 	}
 	ResetStateOnDeploy()
-	expected := proto.State{
-		BuildState: &proto.BuildState{
+	expected := protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": Complete,
 			},
 		},
-		DeployState: &proto.DeployState{Status: NotStarted},
-		StatusCheckState: &proto.StatusCheckState{Status: NotStarted,
+		DeployState: &protoV3.DeployState{Status: NotStarted},
+		StatusCheckState: &protoV3.StatusCheckState{Status: NotStarted,
 			Resources: map[string]string{},
 		},
 	}
-	testutil.CheckDeepEqual(t, expected, handler.getState(), cmpopts.EquateEmpty())
+	testutil.CheckDeepEqualProtoMessage(t, expected, handler.getState(), cmpopts.EquateEmpty())
 }
 
 func TestEmptyStateCheckState(t *testing.T) {
 	actual := emptyStatusCheckState()
-	expected := &proto.StatusCheckState{Status: NotStarted,
+	expected := &protoV3.StatusCheckState{Status: NotStarted,
 		Resources: map[string]string{},
 	}
-	testutil.CheckDeepEqual(t, expected, actual, cmpopts.EquateEmpty())
+	testutil.CheckDeepEqualProtoMessage(t, expected, actual, cmpopts.EquateEmpty())
 }
 
 func TestUpdateStateAutoTriggers(t *testing.T) {
 	defer func() { handler = newHandler() }()
 	handler = newHandler()
-	handler.state = proto.State{
-		BuildState: &proto.BuildState{
+	handler.state = protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": Complete,
 			},
 			AutoTrigger: false,
 		},
-		DeployState: &proto.DeployState{Status: Complete, AutoTrigger: false},
-		ForwardedPorts: map[int32]*proto.PortForwardEvent{
+		DeployState: &protoV3.DeployState{Status: Complete, AutoTrigger: false},
+		ForwardedPorts: map[int32]*protoV3.PortForwardEvent{
 			2001: {
 				LocalPort:  2000,
 				PodName:    "test/pod",
 				TargetPort: &targetPort,
 			},
 		},
-		StatusCheckState: &proto.StatusCheckState{Status: Complete},
-		FileSyncState: &proto.FileSyncState{
+		StatusCheckState: &protoV3.StatusCheckState{Status: Complete},
+		FileSyncState: &protoV3.FileSyncState{
 			Status:      "Complete",
 			AutoTrigger: false,
 		},
@@ -216,34 +226,34 @@ func TestUpdateStateAutoTriggers(t *testing.T) {
 	UpdateStateAutoDeployTrigger(true)
 	UpdateStateAutoSyncTrigger(true)
 
-	expected := proto.State{
-		BuildState: &proto.BuildState{
+	expected := protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts: map[string]string{
 				"image1": Complete,
 			},
 			AutoTrigger: true,
 		},
-		DeployState: &proto.DeployState{Status: Complete, AutoTrigger: true},
-		ForwardedPorts: map[int32]*proto.PortForwardEvent{
+		DeployState: &protoV3.DeployState{Status: Complete, AutoTrigger: true},
+		ForwardedPorts: map[int32]*protoV3.PortForwardEvent{
 			2001: {
 				LocalPort:  2000,
 				PodName:    "test/pod",
 				TargetPort: &targetPort,
 			},
 		},
-		StatusCheckState: &proto.StatusCheckState{Status: Complete},
-		FileSyncState: &proto.FileSyncState{
+		StatusCheckState: &protoV3.StatusCheckState{Status: Complete},
+		FileSyncState: &protoV3.FileSyncState{
 			Status:      "Complete",
 			AutoTrigger: true,
 		},
 	}
-	testutil.CheckDeepEqual(t, expected, handler.getState(), cmpopts.EquateEmpty())
+	testutil.CheckDeepEqualProtoMessage(t, expected, handler.getState(), cmpopts.EquateEmpty())
 }
 
 func TestTaskFailed(t *testing.T) {
 	tcs := []struct {
 		description string
-		state       proto.State
+		state       protoV3.State
 		phase       constants.Phase
 		waitFn      func() bool
 	}{
@@ -254,8 +264,13 @@ func TestTaskFailed(t *testing.T) {
 				handler.logLock.Lock()
 				logEntry := handler.eventLog[len(handler.eventLog)-1]
 				handler.logLock.Unlock()
-				te := logEntry.GetTaskEvent()
-				return te != nil && te.Status == Failed && te.Id == "Build-0"
+
+				if logEntry.Type == TaskFailedEvent {
+					taskFailedEvent := &protoV3.TaskFailedEvent{}
+					anypb.UnmarshalTo(logEntry.Data, taskFailedEvent, proto.UnmarshalOptions{})
+					return taskFailedEvent != nil && taskFailedEvent.Id == "Build-0"
+				}
+				return false
 			},
 		},
 		{
@@ -265,8 +280,12 @@ func TestTaskFailed(t *testing.T) {
 				handler.logLock.Lock()
 				logEntry := handler.eventLog[len(handler.eventLog)-1]
 				handler.logLock.Unlock()
-				te := logEntry.GetTaskEvent()
-				return te != nil && te.Status == Failed && te.Id == "Deploy-0"
+				if logEntry.Type == TaskFailedEvent {
+					taskFailedEvent := &protoV3.TaskFailedEvent{}
+					anypb.UnmarshalTo(logEntry.Data, taskFailedEvent, proto.UnmarshalOptions{})
+					return taskFailedEvent != nil && taskFailedEvent.Id == "Deploy-0"
+				}
+				return false
 			},
 		},
 		{
@@ -276,8 +295,12 @@ func TestTaskFailed(t *testing.T) {
 				handler.logLock.Lock()
 				logEntry := handler.eventLog[len(handler.eventLog)-1]
 				handler.logLock.Unlock()
-				te := logEntry.GetTaskEvent()
-				return te != nil && te.Status == Failed && te.Id == "StatusCheck-0"
+				if logEntry.Type == TaskFailedEvent {
+					taskFailedEvent := &protoV3.TaskFailedEvent{}
+					anypb.UnmarshalTo(logEntry.Data, taskFailedEvent, proto.UnmarshalOptions{})
+					return taskFailedEvent != nil && taskFailedEvent.Id == "StatusCheck-0"
+				}
+				return false
 			},
 		},
 	}
@@ -293,7 +316,7 @@ func TestAutoTriggerDiff(t *testing.T) {
 	tests := []struct {
 		description  string
 		phase        constants.Phase
-		handlerState proto.State
+		handlerState protoV3.State
 		val          bool
 		expected     bool
 	}{
@@ -301,8 +324,8 @@ func TestAutoTriggerDiff(t *testing.T) {
 			description: "build needs update",
 			phase:       constants.Build,
 			val:         true,
-			handlerState: proto.State{
-				BuildState: &proto.BuildState{
+			handlerState: protoV3.State{
+				BuildState: &protoV3.BuildState{
 					AutoTrigger: false,
 				},
 			},
@@ -312,11 +335,11 @@ func TestAutoTriggerDiff(t *testing.T) {
 			description: "deploy doesn't need update",
 			phase:       constants.Deploy,
 			val:         true,
-			handlerState: proto.State{
-				BuildState: &proto.BuildState{
+			handlerState: protoV3.State{
+				BuildState: &protoV3.BuildState{
 					AutoTrigger: false,
 				},
-				DeployState: &proto.DeployState{
+				DeployState: &protoV3.DeployState{
 					AutoTrigger: true,
 				},
 			},
@@ -326,8 +349,8 @@ func TestAutoTriggerDiff(t *testing.T) {
 			description: "sync needs update",
 			phase:       constants.Sync,
 			val:         false,
-			handlerState: proto.State{
-				FileSyncState: &proto.FileSyncState{
+			handlerState: protoV3.State{
+				FileSyncState: &protoV3.FileSyncState{
 					AutoTrigger: true,
 				},
 			},
@@ -360,12 +383,20 @@ func TestSaveEventsToFile(t *testing.T) {
 		t.Fatalf("error closing tmp file: %v", err)
 	}
 
+	buildEvent := &anypb.Any{}
+	anypb.MarshalFrom(buildEvent, &protoV3.BuildSucceededEvent{}, proto.MarshalOptions{})
+
+	taskEvent := &anypb.Any{}
+	anypb.MarshalFrom(taskEvent, &protoV3.TaskCompletedEvent{}, proto.MarshalOptions{})
+
 	// add some events to the event log
-	handler.eventLog = []proto.Event{
+	handler.eventLog = []protoV3.Event{
 		{
-			EventType: &proto.Event_BuildSubtaskEvent{},
+			Data: buildEvent,
+			Type: BuildSucceededEvent,
 		}, {
-			EventType: &proto.Event_TaskEvent{},
+			Data: taskEvent,
+			Type: TaskCompletedEvent,
 		},
 	}
 
@@ -380,13 +411,14 @@ func TestSaveEventsToFile(t *testing.T) {
 		t.Fatalf("reading tmp file: %v", err)
 	}
 
-	var logEntries []proto.Event
+	var logEntries []protoV3.Event
 	entries := strings.Split(string(contents), "\n")
 	for _, e := range entries {
 		if e == "" {
 			continue
 		}
-		var logEntry proto.Event
+		var logEntry protoV3.Event
+
 		if err := jsonpb.UnmarshalString(e, &logEntry); err != nil {
 			t.Errorf("error converting http response %s to proto: %s", e, err.Error())
 		}
@@ -394,13 +426,15 @@ func TestSaveEventsToFile(t *testing.T) {
 	}
 
 	buildCompleteEvent, devLoopCompleteEvent := 0, 0
+
 	for _, entry := range logEntries {
-		t.Log(entry.GetEventType())
-		switch entry.GetEventType().(type) {
-		case *proto.Event_BuildSubtaskEvent:
+		////t.Log(entry.GetEventType())
+
+		switch entry.Type {
+		case BuildSucceededEvent:
 			buildCompleteEvent++
 			t.Logf("build event %d: %v", buildCompleteEvent, entry)
-		case *proto.Event_TaskEvent:
+		case TaskCompletedEvent:
 			devLoopCompleteEvent++
 			t.Logf("dev loop event %d: %v", devLoopCompleteEvent, entry)
 		default:

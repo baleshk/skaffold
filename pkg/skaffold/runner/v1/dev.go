@@ -26,6 +26,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/filemon"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/instrumentation"
@@ -70,9 +71,12 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 
 	event.DevLoopInProgress(r.devIteration)
 	eventV2.InitializeState(r.runCtx)
+	eventV3.InitializeState(r.runCtx)
 	eventV2.TaskInProgress(constants.DevLoop, "")
+	eventV3.TaskInProgress(constants.DevLoop, "")
 	defer func() { r.devIteration++ }()
 	eventV2.LogMetaEvent()
+	eventV3.LogMetaEvent()
 	ctx, endTrace := instrumentation.StartTrace(ctx, "doDev_DevLoopInProgress", map[string]string{
 		"devIteration": strconv.Itoa(r.devIteration),
 	})
@@ -96,6 +100,7 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 				fileSyncFailed(fileCount, s.Image, err)
 				event.DevLoopFailedInPhase(r.devIteration, constants.Sync, err)
 				eventV2.TaskFailed(constants.DevLoop, err)
+				eventV3.TaskFailed(constants.DevLoop, err)
 				endTrace(instrumentation.TraceEndError(err))
 
 				return nil
@@ -125,6 +130,7 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 			log.Entry(ctx).Warn("Skipping test and deploy due to build error:", err)
 			event.DevLoopFailedInPhase(r.devIteration, constants.Build, err)
 			eventV2.TaskFailed(constants.DevLoop, err)
+			eventV3.TaskFailed(constants.DevLoop, err)
 			endTrace(instrumentation.TraceEndError(err))
 			return nil
 		}
@@ -154,6 +160,7 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 			}
 			event.DevLoopFailedInPhase(r.devIteration, constants.Test, err)
 			eventV2.TaskFailed(constants.DevLoop, err)
+			eventV3.TaskFailed(constants.DevLoop, err)
 			endTrace(instrumentation.TraceEndError(err))
 			return nil
 		}
@@ -181,6 +188,7 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 			log.Entry(ctx).Warn("Skipping deploy due to error:", err)
 			event.DevLoopFailedInPhase(r.devIteration, constants.Deploy, err)
 			eventV2.TaskFailed(constants.DevLoop, err)
+			eventV3.TaskFailed(constants.DevLoop, err)
 			endTrace(instrumentation.TraceEndError(err))
 			return nil
 		}
@@ -197,6 +205,7 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 	}
 	event.DevLoopComplete(r.devIteration)
 	eventV2.TaskSucceeded(constants.DevLoop)
+	eventV3.TaskSucceeded(constants.DevLoop)
 	endTrace()
 	r.deployer.GetLogger().Unmute()
 	return nil
@@ -207,9 +216,12 @@ func (r *SkaffoldRunner) doDev(ctx context.Context, out io.Writer) error {
 func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*latestV1.Artifact) error {
 	event.DevLoopInProgress(r.devIteration)
 	eventV2.InitializeState(r.runCtx)
+	eventV3.InitializeState(r.runCtx)
 	eventV2.TaskInProgress(constants.DevLoop, "")
+	eventV3.TaskInProgress(constants.DevLoop, "")
 	defer func() { r.devIteration++ }()
 	eventV2.LogMetaEvent()
+	eventV3.LogMetaEvent()
 	ctx, endTrace := instrumentation.StartTrace(ctx, "Dev", map[string]string{
 		"devIteration": strconv.Itoa(r.devIteration),
 	})
@@ -249,6 +261,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 			); err != nil {
 				event.DevLoopFailedWithErrorCode(r.devIteration, proto.StatusCode_DEVINIT_REGISTER_BUILD_DEPS, err)
 				eventV2.TaskFailed(constants.DevLoop, err)
+				eventV3.TaskFailed(constants.DevLoop, err)
 				endTrace()
 				return fmt.Errorf("watching files for artifact %q: %w", artifact.ImageName, err)
 			}
@@ -264,6 +277,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 		); err != nil {
 			event.DevLoopFailedWithErrorCode(r.devIteration, proto.StatusCode_DEVINIT_REGISTER_TEST_DEPS, err)
 			eventV2.TaskFailed(constants.DevLoop, err)
+			eventV3.TaskFailed(constants.DevLoop, err)
 			endTrace()
 			return fmt.Errorf("watching test files: %w", err)
 		}
@@ -276,6 +290,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 	); err != nil {
 		event.DevLoopFailedWithErrorCode(r.devIteration, proto.StatusCode_DEVINIT_REGISTER_DEPLOY_DEPS, err)
 		eventV2.TaskFailed(constants.DevLoop, err)
+		eventV3.TaskFailed(constants.DevLoop, err)
 		endTrace()
 		return fmt.Errorf("watching files for deployer: %w", err)
 	}
@@ -287,6 +302,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 	); err != nil {
 		event.DevLoopFailedWithErrorCode(r.devIteration, proto.StatusCode_DEVINIT_REGISTER_CONFIG_DEP, err)
 		eventV2.TaskFailed(constants.DevLoop, err)
+		eventV3.TaskFailed(constants.DevLoop, err)
 		endTrace()
 		return fmt.Errorf("watching skaffold configuration %q: %w", r.runCtx.ConfigurationFile(), err)
 	}
@@ -297,6 +313,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 	if err := sync.Init(ctx, artifacts); err != nil {
 		event.DevLoopFailedWithErrorCode(r.devIteration, proto.StatusCode_SYNC_INIT_ERROR, err)
 		eventV2.TaskFailed(constants.DevLoop, err)
+		eventV3.TaskFailed(constants.DevLoop, err)
 		endTrace()
 		return fmt.Errorf("exiting dev mode because initializing sync state failed: %w", err)
 	}
@@ -306,6 +323,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 	if err != nil {
 		event.DevLoopFailedInPhase(r.devIteration, constants.Build, err)
 		eventV2.TaskFailed(constants.DevLoop, err)
+		eventV3.TaskFailed(constants.DevLoop, err)
 		endTrace()
 		return fmt.Errorf("exiting dev mode because first build failed: %w", err)
 	}
@@ -314,6 +332,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 		if err = r.Test(ctx, out, bRes); err != nil {
 			event.DevLoopFailedInPhase(r.devIteration, constants.Build, err)
 			eventV2.TaskFailed(constants.DevLoop, err)
+			eventV3.TaskFailed(constants.DevLoop, err)
 			endTrace()
 			return fmt.Errorf("exiting dev mode because test failed after first build: %w", err)
 		}
@@ -329,6 +348,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 	if err := r.Deploy(ctx, out, r.Builds); err != nil {
 		event.DevLoopFailedInPhase(r.devIteration, constants.Deploy, err)
 		eventV2.TaskFailed(constants.DevLoop, err)
+		eventV3.TaskFailed(constants.DevLoop, err)
 		endTrace()
 		return fmt.Errorf("exiting dev mode because first deploy failed: %w", err)
 	}
@@ -350,6 +370,7 @@ func (r *SkaffoldRunner) Dev(ctx context.Context, out io.Writer, artifacts []*la
 
 	event.DevLoopComplete(r.devIteration)
 	eventV2.TaskSucceeded(constants.DevLoop)
+	eventV3.TaskSucceeded(constants.DevLoop)
 	endTrace()
 	r.devIteration++
 	return r.listener.WatchForChanges(ctx, out, func() error {

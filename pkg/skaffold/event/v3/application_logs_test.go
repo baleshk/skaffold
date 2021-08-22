@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"testing"
 
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 func TestHandleApplicationLogEvent(t *testing.T) {
@@ -35,12 +35,16 @@ func TestHandleApplicationLogEvent(t *testing.T) {
 
 	// ensure that messages sent through the ApplicationLog function are populating the event log
 	for _, message := range messages {
-		testHandler.handleApplicationLogEvent(&proto.ApplicationLogEvent{
-			ContainerName: "containerName-0",
-			PodName:       "pod-0",
-			Message:       message,
-		})
+		event := &protoV3.ApplicationLogEvent{
+			ContainerName:        "containerName-0",
+			PodName:              "pod-0",
+			Prefix:               "",
+			Message:              message,
+			RichFormattedMessage: "",
+		}
+		testHandler.handle(message, event, ApplicationLogEvent)
 	}
+
 	wait(t, func() bool {
 		testHandler.applicationLogsLock.Lock()
 		logLen := len(testHandler.applicationLogs)

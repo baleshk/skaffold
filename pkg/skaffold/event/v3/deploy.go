@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"fmt"
@@ -22,33 +22,33 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	sErrors "github.com/GoogleContainerTools/skaffold/pkg/skaffold/errors"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
 )
 
 func DeployInProgress(id int) {
-	deployEvent := &proto.DeployStartedEvent{
+	deployEvent := &protoV3.DeployStartedEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: InProgress,
 	}
-	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeployStartedEvent)
+	handler.handle(deployEvent.Id, deployEvent, DeployStartedEvent)
 }
 
 func DeployFailed(id int, err error) {
-	deployEvent := &proto.DeployFailedEvent{
+	deployEvent := &protoV3.DeployFailedEvent{
 		Id:            strconv.Itoa(id),
 		TaskId:        fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status:        Failed,
-		ActionableErr: sErrors.ActionableErrV2(handler.cfg, constants.Deploy, err),
+		ActionableErr: sErrors.ActionableErrV3(handler.cfg, constants.Deploy, err),
 	}
-	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeployFailedEvent)
+	handler.handle(deployEvent.Id, deployEvent, DeployFailedEvent)
 }
 
 func DeploySucceeded(id int) {
-	deployEvent := &proto.DeploySucceededEvent{
+	deployEvent := &protoV3.DeploySucceededEvent{
 		Id:     strconv.Itoa(id),
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: Succeeded,
 	}
-	WrapInMainAndHandle(deployEvent.Id, deployEvent, DeploySucceededEvent)
+	handler.handle(deployEvent.Id, deployEvent, DeploySucceededEvent)
 }

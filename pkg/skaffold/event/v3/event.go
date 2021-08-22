@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package v3
 
 import (
 	"bytes"
@@ -25,13 +25,14 @@ import (
 
 	//nolint:golint,staticcheck
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	sErrors "github.com/GoogleContainerTools/skaffold/pkg/skaffold/errors"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/util"
-	proto "github.com/GoogleContainerTools/skaffold/proto/v2"
-	proto1 "google.golang.org/protobuf/proto"
+	protoV3 "github.com/GoogleContainerTools/skaffold/proto/v3"
+	proto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -61,27 +62,28 @@ const (
 	DeploySucceededEvent              string = "DeploySucceededEvent"
 	SkaffoldLogEvent                  string = "SkaffoldLogEvent"
 	MetaEvent                         string = "MetaEvent"
-	RendererStartedEvent              string = "RendererStartedEvent"
-	RendererFailedEvent               string = "RendererFailedEvent"
-	ReenderSucceededEvent             string = "ReenderSucceededEvent"
+	RenderStartedEvent                string = "RenderStartedEvent"
+	RenderFailedEvent                 string = "RenderFailedEvent"
+	RenderSucceededEvent              string = "RenderSucceededEvent"
 	StatusCheckFailedEvent            string = "StatusCheckFailedEvent"
 	StatusCheckStartedEvent           string = "StatusCheckStartedEvent"
 	StatusCheckSucceededEvent         string = "StatusCheckSucceededEvent"
-	TesterFailedEvent                 string = "TesterFailedEvent"
-	TesterSucceededEvent              string = "TesterSucceededEvent"
-	TesterStartedEvent                string = "TesterStartedEvent"
+	TestFailedEvent                   string = "TestFailedEvent"
+	TestSucceededEvent                string = "TestSucceededEvent"
+	TestStartedEvent                  string = "TestStartedEvent"
 	ApplicationLogEvent               string = "ApplicationLogEvent"
 	PortForwardedEvent                string = "PortForwardedEvent"
 	FileSyncEvent                     string = "FileSyncEvent"
 	TaskStartedEvent                  string = "TaskStartedEvent"
 	TaskFailedEvent                   string = "TaskFailedEvent"
+	TaskCompletedEvent                string = "TaskCompletedEvent"
 )
 
 var handler = newHandler()
 
 func newHandler() *eventHandler {
 	h := &eventHandler{
-		eventChan: make(chan *proto.Event),
+		eventChan: make(chan *protoV3.Event),
 	}
 	go func() {
 		for {
@@ -96,70 +98,62 @@ func newHandler() *eventHandler {
 }
 
 type eventHandler struct {
-	eventLog            []proto.Event
-	logLock             sync.Mutex
-	applicationLogs     []proto.Event
-	applicationLogsLock sync.Mutex
-	cfg                 Config
-
+	eventLog                []protoV3.Event
+	logLock                 sync.Mutex
+	applicationLogs         []protoV3.Event
+	applicationLogsLock     sync.Mutex
+	cfg                     Config
 	iteration               int
-	state                   proto.State
+	state                   protoV3.State
 	stateLock               sync.Mutex
-	eventChan               chan *proto.Event
+	eventChan               chan *protoV3.Event
 	eventListeners          []*listener
 	applicationLogListeners []*listener
 }
 
 type listener struct {
-	callback func(*proto.Event) error
+	callback func(*protoV3.Event) error
 	errors   chan error
 	closed   bool
-}
-
-func WrapInMainAndHandle(messageId string, event proto1.Message, eventType string) {
-	dst := &anypb.Any{}
-	anypb.MarshalFrom(dst, event, proto1.MarshalOptions{})
-	//json.Marshal(dst, event, proto1.MarshalOptions{})
-	handler.handle(messageId, eventType, dst)
 }
 
 func GetIteration() int {
 	return handler.iteration
 }
 
-func GetState() (*proto.State, error) {
+func GetState() (*protoV3.State, error) {
 	state := handler.getState()
 	return &state, nil
 }
 
-func ForEachEvent(callback func(*proto.Event) error) error {
+func ForEachEvent(callback func(*protoV3.Event) error) error {
 	return handler.forEachEvent(callback)
 }
 
-func ForEachApplicationLog(callback func(*proto.Event) error) error {
+func ForEachApplicationLog(callback func(*protoV3.Event) error) error {
 	return handler.forEachApplicationLog(callback)
 }
 
-func Handle(event *proto.Event) error {
+func Handle(event *protoV3.Event) error {
 	if event != nil {
-		handler.handleInternal(event)
+		handler.publishEventOnChannel(event)
 	}
 	return nil
 }
 
-func (ev *eventHandler) getState() proto.State {
+func (ev *eventHandler) getState() protoV3.State {
 	ev.stateLock.Lock()
 	// Deep copy
 	buf, _ := json.Marshal(ev.state)
 	ev.stateLock.Unlock()
 
-	var state proto.State
+	var state protoV3.State
 	json.Unmarshal(buf, &state)
 
 	return state
 }
 
-func (ev *eventHandler) log(event *proto.Event, listeners *[]*listener, log *[]proto.Event, lock sync.Locker) {
+func (ev *eventHandler) log(event *protoV3.Event, listeners *[]*listener, log *[]protoV3.Event, lock sync.Locker) {
 	lock.Lock()
 
 	for _, listener := range *listeners {
@@ -177,15 +171,15 @@ func (ev *eventHandler) log(event *proto.Event, listeners *[]*listener, log *[]p
 	lock.Unlock()
 }
 
-func (ev *eventHandler) logEvent(event *proto.Event) {
+func (ev *eventHandler) logEvent(event *protoV3.Event) {
 	ev.log(event, &ev.eventListeners, &ev.eventLog, &ev.logLock)
 }
 
-func (ev *eventHandler) logApplicationLog(event *proto.Event) {
+func (ev *eventHandler) logApplicationLog(event *protoV3.Event) {
 	ev.log(event, &ev.applicationLogListeners, &ev.applicationLogs, &ev.applicationLogsLock)
 }
 
-func (ev *eventHandler) forEach(listeners *[]*listener, log *[]proto.Event, lock sync.Locker, callback func(*proto.Event) error) error {
+func (ev *eventHandler) forEach(listeners *[]*listener, log *[]protoV3.Event, lock sync.Locker, callback func(*protoV3.Event) error) error {
 	listener := &listener{
 		callback: callback,
 		errors:   make(chan error),
@@ -193,7 +187,7 @@ func (ev *eventHandler) forEach(listeners *[]*listener, log *[]proto.Event, lock
 
 	lock.Lock()
 
-	oldEvents := make([]proto.Event, len(*log))
+	oldEvents := make([]protoV3.Event, len(*log))
 	copy(oldEvents, *log)
 	*listeners = append(*listeners, listener)
 
@@ -209,15 +203,15 @@ func (ev *eventHandler) forEach(listeners *[]*listener, log *[]proto.Event, lock
 	return <-listener.errors
 }
 
-func (ev *eventHandler) forEachEvent(callback func(*proto.Event) error) error {
+func (ev *eventHandler) forEachEvent(callback func(*protoV3.Event) error) error {
 	return ev.forEach(&ev.eventListeners, &ev.eventLog, &ev.logLock, callback)
 }
 
-func (ev *eventHandler) forEachApplicationLog(callback func(*proto.Event) error) error {
+func (ev *eventHandler) forEachApplicationLog(callback func(*protoV3.Event) error) error {
 	return ev.forEach(&ev.applicationLogListeners, &ev.applicationLogs, &ev.applicationLogsLock, callback)
 }
 
-func emptyState(cfg Config) proto.State {
+func emptyState(cfg Config) protoV3.State {
 	builds := map[string]string{}
 	for _, p := range cfg.GetPipelines() {
 		for _, a := range p.Build.Artifacts {
@@ -228,29 +222,29 @@ func emptyState(cfg Config) proto.State {
 	return emptyStateWithArtifacts(builds, metadata, cfg.AutoBuild(), cfg.AutoDeploy(), cfg.AutoSync())
 }
 
-func emptyStateWithArtifacts(builds map[string]string, metadata *proto.Metadata, autoBuild, autoDeploy, autoSync bool) proto.State {
-	return proto.State{
-		BuildState: &proto.BuildState{
+func emptyStateWithArtifacts(builds map[string]string, metadata *protoV3.Metadata, autoBuild, autoDeploy, autoSync bool) protoV3.State {
+	return protoV3.State{
+		BuildState: &protoV3.BuildState{
 			Artifacts:   builds,
 			AutoTrigger: autoBuild,
-			StatusCode:  proto.StatusCode_OK,
+			StatusCode:  protoV3.StatusCode_OK,
 		},
-		TestState: &proto.TestState{
+		TestState: &protoV3.TestState{
 			Status:     NotStarted,
-			StatusCode: proto.StatusCode_OK,
+			StatusCode: protoV3.StatusCode_OK,
 		},
-		RenderState: &proto.RenderState{
+		RenderState: &protoV3.RenderState{
 			Status:     NotStarted,
-			StatusCode: proto.StatusCode_OK,
+			StatusCode: protoV3.StatusCode_OK,
 		},
-		DeployState: &proto.DeployState{
+		DeployState: &protoV3.DeployState{
 			Status:      NotStarted,
 			AutoTrigger: autoDeploy,
-			StatusCode:  proto.StatusCode_OK,
+			StatusCode:  protoV3.StatusCode_OK,
 		},
 		StatusCheckState: emptyStatusCheckState(),
-		ForwardedPorts:   make(map[int32]*proto.PortForwardEvent),
-		FileSyncState: &proto.FileSyncState{
+		ForwardedPorts:   make(map[int32]*protoV3.PortForwardEvent),
+		FileSyncState: &protoV3.FileSyncState{
 			Status:      NotStarted,
 			AutoTrigger: autoSync,
 		},
@@ -280,9 +274,9 @@ func ResetStateOnTest() {
 func ResetStateOnDeploy() {
 	newState := handler.getState()
 	newState.DeployState.Status = NotStarted
-	newState.DeployState.StatusCode = proto.StatusCode_OK
+	newState.DeployState.StatusCode = protoV3.StatusCode_OK
 	newState.StatusCheckState = emptyStatusCheckState()
-	newState.ForwardedPorts = map[int32]*proto.PortForwardEvent{}
+	newState.ForwardedPorts = map[int32]*protoV3.PortForwardEvent{}
 	newState.DebuggingContainers = nil
 	handler.setState(newState)
 }
@@ -305,11 +299,11 @@ func UpdateStateAutoSyncTrigger(t bool) {
 	handler.setState(newState)
 }
 
-func emptyStatusCheckState() *proto.StatusCheckState {
-	return &proto.StatusCheckState{
+func emptyStatusCheckState() *protoV3.StatusCheckState {
+	return &protoV3.StatusCheckState{
 		Status:     NotStarted,
 		Resources:  map[string]string{},
-		StatusCode: proto.StatusCode_OK,
+		StatusCode: protoV3.StatusCode_OK,
 	}
 }
 
@@ -337,44 +331,44 @@ func TaskInProgress(task constants.Phase, description string) {
 	if task == constants.DevLoop {
 		handler.iteration++
 
-		handler.applicationLogs = []proto.Event{}
+		handler.applicationLogs = []protoV3.Event{}
 	}
 
-	event := &proto.TaskStartedEvent{
+	event := &protoV3.TaskStartedEvent{
 		Id:          fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:        string(task),
 		Description: description,
 		Iteration:   int32(handler.iteration),
 		Status:      InProgress,
 	}
-	WrapInMainAndHandle(event.Id, event, TaskStartedEvent)
+	handler.handle(event.Id, event, TaskStartedEvent)
 }
 
 func TaskFailed(task constants.Phase, err error) {
-	ae := sErrors.ActionableErrV2(handler.cfg, task, err)
-	event := &proto.TaskStartedEvent{
+	ae := sErrors.ActionableErrV3(handler.cfg, task, err)
+	event := &protoV3.TaskFailedEvent{
 		Id:            fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:          string(task),
 		Iteration:     int32(handler.iteration),
 		Status:        Failed,
 		ActionableErr: ae,
 	}
-	WrapInMainAndHandle(event.Id, event, TaskFailedEvent)
+	handler.handle(event.Id, event, TaskFailedEvent)
 }
 
 func TaskSucceeded(task constants.Phase) {
-	event := &proto.TaskStartedEvent{
+	event := &protoV3.TaskCompletedEvent{
 		Id:        fmt.Sprintf("%s-%d", task, handler.iteration),
 		Task:      string(task),
 		Iteration: int32(handler.iteration),
 		Status:    Succeeded,
 	}
-	WrapInMainAndHandle(event.Id, event, TaskStartedEvent)
+	handler.handle(event.Id, event, TaskCompletedEvent)
 }
 
 // PortForwarded notifies that a remote port has been forwarded locally.
 func PortForwarded(localPort int32, remotePort util.IntOrString, podName, containerName, namespace string, portName string, resourceType, resourceName, address string) {
-	event := &proto.PortForwardEvent{
+	event := &protoV3.PortForwardEvent{
 		TaskId:        fmt.Sprintf("%s-%d", constants.PortForward, handler.iteration),
 		LocalPort:     localPort,
 		PodName:       podName,
@@ -384,28 +378,32 @@ func PortForwarded(localPort int32, remotePort util.IntOrString, podName, contai
 		ResourceType:  resourceType,
 		ResourceName:  resourceName,
 		Address:       address,
-		TargetPort: &proto.IntOrString{
+		TargetPort: &protoV3.IntOrString{
 			Type:   int32(remotePort.Type),
 			IntVal: int32(remotePort.IntVal),
 			StrVal: remotePort.StrVal,
 		},
 	}
 
-	WrapInMainAndHandle(event.TaskId, event, PortForwardedEvent)
+	handler.handle(event.TaskId, event, PortForwardedEvent)
 }
 
-func (ev *eventHandler) setState(state proto.State) {
+func (ev *eventHandler) setState(state protoV3.State) {
 	ev.stateLock.Lock()
 	ev.state = state
 	ev.stateLock.Unlock()
 }
 
-func (ev *eventHandler) handle(id string, eventtype string, dst *anypb.Any) {
-	event := &proto.Event{Id: id, Type: eventtype, Data: dst, Specversion: "1.0", Source: "skaffold.dev"}
-	ev.handleInternal(event)
+func (ev *eventHandler) handle(id string, event proto.Message, eventtype string) {
+	eventInAnyFormat := &anypb.Any{}
+	anypb.MarshalFrom(eventInAnyFormat, event, proto.MarshalOptions{})
+
+	containerEvent := &protoV3.Event{Id: uuid.New().String(), Type: eventtype, Data: eventInAnyFormat, Specversion: "1.0", Source: "skaffold.dev"}
+	containerEvent.Datacontenttype = "application/protobuf"
+	ev.publishEventOnChannel(containerEvent)
 }
 
-func (ev *eventHandler) handleInternal(event *proto.Event) {
+func (ev *eventHandler) publishEventOnChannel(event *protoV3.Event) {
 	event.Time = timestamppb.Now()
 	ev.eventChan <- event
 	if event.Type == "terminationEvent" {
@@ -415,25 +413,23 @@ func (ev *eventHandler) handleInternal(event *proto.Event) {
 	}
 }
 
-func (ev *eventHandler) handleExec(event *proto.Event) {
+func (ev *eventHandler) handleExec(event *protoV3.Event) {
 	switch event.Type {
 	case ApplicationLogEvent:
 		ev.logApplicationLog(event)
 		return
 	case BuildSucceededEvent:
-		buildEvent := &proto.BuildSucceededEvent{}
-		anypb.UnmarshalTo(event.Data, buildEvent, proto1.UnmarshalOptions{})
-		json.Unmarshal(event.Data.Value, buildEvent)
+		buildEvent := &protoV3.BuildSucceededEvent{}
+		anypb.UnmarshalTo(event.Data, buildEvent, proto.UnmarshalOptions{})
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
 			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
 			ev.stateLock.Unlock()
 		}
 	case BuildStartedEvent:
-		buildEvent := &proto.BuildStartedEvent{}
-		fmt.Println(event.Data)
-		anypb.UnmarshalTo(event.Data, buildEvent, proto1.UnmarshalOptions{})
-		json.Unmarshal(event.Data.Value, buildEvent)
+		fmt.Println("Build started event catch")
+		buildEvent := &protoV3.BuildStartedEvent{}
+		anypb.UnmarshalTo(event.Data, buildEvent, proto.UnmarshalOptions{})
 		fmt.Println(buildEvent)
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
@@ -441,106 +437,128 @@ func (ev *eventHandler) handleExec(event *proto.Event) {
 			ev.stateLock.Unlock()
 		}
 	case BuildFailedEvent:
-		buildEvent := &proto.BuildFailedEvent{}
-		json.Unmarshal(event.Data.Value, buildEvent)
+		buildEvent := &protoV3.BuildFailedEvent{}
+		anypb.UnmarshalTo(event.Data, buildEvent, proto.UnmarshalOptions{})
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
 			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
 			ev.stateLock.Unlock()
 		}
 	case BuildCancelledEvent:
-		buildEvent := &proto.BuildCancelledEvent{}
-		json.Unmarshal(event.Data.Value, buildEvent)
+		buildEvent := &protoV3.BuildCancelledEvent{}
+		anypb.UnmarshalTo(event.Data, buildEvent, proto.UnmarshalOptions{})
 		if buildEvent.Step == Build {
 			ev.stateLock.Lock()
 			ev.state.BuildState.Artifacts[buildEvent.Artifact] = buildEvent.Status
 			ev.stateLock.Unlock()
 		}
-	case TesterFailedEvent:
-		te := &proto.TestFailedEvent{}
-		json.Unmarshal(event.Data.Value, te)
+	case TestFailedEvent:
+		te := &protoV3.TestFailedEvent{}
+		anypb.UnmarshalTo(event.Data, te, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
-	case TesterStartedEvent:
-		te := &proto.TestStartedEvent{}
-		json.Unmarshal(event.Data.Value, te)
+	case TestStartedEvent:
+		te := &protoV3.TestStartedEvent{}
+		anypb.UnmarshalTo(event.Data, te, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.TestState.Status = te.Status
 		ev.stateLock.Unlock()
-	case RendererFailedEvent:
-		re := &proto.RenderFailedEvent{}
-		json.Unmarshal(event.Data.Value, re)
+	case TestSucceededEvent:
+		te := &protoV3.TestSucceededEvent{}
+		anypb.UnmarshalTo(event.Data, te, proto.UnmarshalOptions{})
+		ev.stateLock.Lock()
+		ev.state.TestState.Status = te.Status
+		ev.stateLock.Unlock()
+	case RenderFailedEvent:
+		re := &protoV3.RenderFailedEvent{}
+		anypb.UnmarshalTo(event.Data, re, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.RenderState.Status = re.Status
 		ev.stateLock.Unlock()
-	case ReenderSucceededEvent:
-		re := &proto.RenderSucceededEvent{}
-		json.Unmarshal(event.Data.Value, re)
+	case RenderSucceededEvent:
+		re := &protoV3.RenderSucceededEvent{}
+		anypb.UnmarshalTo(event.Data, re, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.RenderState.Status = re.Status
 		ev.stateLock.Unlock()
-	case RendererStartedEvent:
-		de := &proto.DeployStartedEvent{}
-		json.Unmarshal(event.Data.Value, de)
+	case RenderStartedEvent:
+		re := &protoV3.RenderStartedEvent{}
+		anypb.UnmarshalTo(event.Data, re, proto.UnmarshalOptions{})
+		ev.stateLock.Lock()
+		ev.state.RenderState.Status = re.Status
+		ev.stateLock.Unlock()
+	case DeployStartedEvent:
+		de := &protoV3.DeployStartedEvent{}
+		anypb.UnmarshalTo(event.Data, de, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case DeployFailedEvent:
-		de := &proto.DeployFailedEvent{}
-		json.Unmarshal(event.Data.Value, de)
+		de := &protoV3.DeployFailedEvent{}
+		anypb.UnmarshalTo(event.Data, de, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case DeploySucceededEvent:
-		de := &proto.DeploySucceededEvent{}
-		json.Unmarshal(event.Data.Value, de)
+		de := &protoV3.DeploySucceededEvent{}
+		anypb.UnmarshalTo(event.Data, de, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.DeployState.Status = de.Status
 		ev.stateLock.Unlock()
 	case PortForwardedEvent:
-		pe := &proto.PortForwardEvent{}
-		json.Unmarshal(event.Data.Value, pe)
+		pe := &protoV3.PortForwardEvent{}
+		anypb.UnmarshalTo(event.Data, pe, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		if ev.state.ForwardedPorts == nil {
-			ev.state.ForwardedPorts = map[int32]*proto.PortForwardEvent{}
+			ev.state.ForwardedPorts = map[int32]*protoV3.PortForwardEvent{}
 		}
 		ev.state.ForwardedPorts[pe.LocalPort] = pe
 		ev.stateLock.Unlock()
 	case StatusCheckStartedEvent:
-		se := &proto.StatusCheckStartedEvent{}
-		json.Unmarshal(event.Data.Value, se)
+		se := &protoV3.StatusCheckStartedEvent{}
+		anypb.UnmarshalTo(event.Data, se, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case StatusCheckSucceededEvent:
-		se := &proto.StatusCheckSucceededEvent{}
-		json.Unmarshal(event.Data.Value, se)
+		se := &protoV3.StatusCheckSucceededEvent{}
+		anypb.UnmarshalTo(event.Data, se, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case StatusCheckFailedEvent:
-		se := &proto.StatusCheckFailedEvent{}
-		json.Unmarshal(event.Data.Value, se)
+		se := &protoV3.StatusCheckFailedEvent{}
+		anypb.UnmarshalTo(event.Data, se, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.StatusCheckState.Resources[se.Resource] = se.Status
 		ev.stateLock.Unlock()
 	case FileSyncEvent:
-		fse := &proto.FileSyncEvent{}
-		json.Unmarshal(event.Data.Value, fse)
+		fse := &protoV3.FileSyncEvent{}
+		anypb.UnmarshalTo(event.Data, fse, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		ev.state.FileSyncState.Status = fse.Status
 		ev.stateLock.Unlock()
 	case DebuggingContainerStartedEvent:
-		de := &proto.DebuggingContainerStartedEvent{}
-		json.Unmarshal(event.Data.Value, de)
+		de := &protoV3.DebuggingContainerStartedEvent{}
+		anypb.UnmarshalTo(event.Data, de, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
-		//Todo: copy state from event and replace nil
-		//ev.state.DebuggingContainerState = append(ev.state.DebuggingContainerState, )
+		ev.state.DebuggingContainers = append(ev.state.DebuggingContainers, &protoV3.DebuggingContainerState{
+			Id:            de.Id,
+			TaskId:        de.TaskId,
+			Status:        de.Status,
+			PodName:       de.PodName,
+			ContainerName: de.ContainerName,
+			Namespace:     de.Namespace,
+			Artifact:      de.Artifact,
+			Runtime:       de.Runtime,
+			WorkingDir:    de.WorkingDir,
+			DebugPorts:    de.DebugPorts,
+		})
 		ev.stateLock.Unlock()
 	case DebuggingContainerTerminatedEvent:
-		de := &proto.DebuggingContainerTerminatedEvent{}
-		json.Unmarshal(event.Data.Value, de)
+		de := &protoV3.DebuggingContainerTerminatedEvent{}
+		anypb.UnmarshalTo(event.Data, de, proto.UnmarshalOptions{})
 		ev.stateLock.Lock()
 		n := 0
 		for _, x := range ev.state.DebuggingContainers {
