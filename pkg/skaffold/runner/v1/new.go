@@ -26,6 +26,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/filemon"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/instrumentation"
@@ -44,7 +45,9 @@ func NewForConfig(ctx context.Context, runCtx *runcontext.RunContext) (*Skaffold
 	event.InitializeState(runCtx)
 	event.LogMetaEvent()
 	eventV2.InitializeState(runCtx)
+	eventV3.InitializeState(runCtx)
 	eventV2.LogMetaEvent()
+	eventV3.LogMetaEvent()
 	_, endTrace := instrumentation.StartTrace(context.Background(), "NewForConfig")
 	defer endTrace()
 

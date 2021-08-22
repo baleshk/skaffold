@@ -4,7 +4,7 @@
 // 	protoc        v3.17.3
 // source: v2/skaffold.proto
 
-package proto
+package v2
 
 import (
 	enums "github.com/GoogleContainerTools/skaffold/proto/enums"

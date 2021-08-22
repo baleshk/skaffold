@@ -23,8 +23,10 @@ import (
 	"io"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
+	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/logfile"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output"
@@ -75,6 +77,8 @@ func (t FullTester) Test(ctx context.Context, out io.Writer, bRes []graph.Artifa
 		return nil
 	}
 
+	eventV2.TaskInProgress(constants.Test, "")
+	eventV3.TaskInProgress(constants.Test, "")
 	output.Default.Fprintln(out, "Testing images...")
 
 	if t.muted.MuteTest() {
@@ -112,11 +116,14 @@ func (t FullTester) runTests(ctx context.Context, out io.Writer, bRes []graph.Ar
 	for _, b := range bRes {
 		for _, tester := range t.Testers[b.ImageName] {
 			eventV2.TesterInProgress(testerID)
+			eventV3.TesterInProgress(testerID)
 			if err := tester.Test(ctx, out, b.Tag); err != nil {
 				eventV2.TesterFailed(testerID, err)
+				eventV3.TesterFailed(testerID, err)
 				return fmt.Errorf("running tests: %w", err)
 			}
 			eventV2.TesterSucceeded(testerID)
+			eventV3.TesterSucceeded(testerID)
 			testerID++
 		}
 	}
