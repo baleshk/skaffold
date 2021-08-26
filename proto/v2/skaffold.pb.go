@@ -725,7 +725,7 @@ func (x *BuildMetadata) GetType() enums.BuildType {
 	if x != nil {
 		return x.Type
 	}
-	return enums.BuildType(0)
+	return enums.BuildType_UNKNOWN_BUILD_TYPE
 }
 
 func (x *BuildMetadata) GetAdditional() map[string]string {
@@ -954,7 +954,7 @@ func (x *BuildState) GetStatusCode() enums.StatusCode {
 	if x != nil {
 		return x.StatusCode
 	}
-	return enums.StatusCode(0)
+	return enums.StatusCode_OK
 }
 
 // `TestState` describes the current state of the test
@@ -1012,7 +1012,7 @@ func (x *TestState) GetStatusCode() enums.StatusCode {
 	if x != nil {
 		return x.StatusCode
 	}
-	return enums.StatusCode(0)
+	return enums.StatusCode_OK
 }
 
 // `RenderState` describes the current state of the render
@@ -1070,7 +1070,7 @@ func (x *RenderState) GetStatusCode() enums.StatusCode {
 	if x != nil {
 		return x.StatusCode
 	}
-	return enums.StatusCode(0)
+	return enums.StatusCode_OK
 }
 
 // `DeployState` describes the status of the current deploy
@@ -1134,7 +1134,7 @@ func (x *DeployState) GetStatusCode() enums.StatusCode {
 	if x != nil {
 		return x.StatusCode
 	}
-	return enums.StatusCode(0)
+	return enums.StatusCode_OK
 }
 
 // `StatusCheckState` describes the state of status check of current deployed resources.
@@ -1205,7 +1205,7 @@ func (x *StatusCheckState) GetStatusCode() enums.StatusCode {
 	if x != nil {
 		return x.StatusCode
 	}
-	return enums.StatusCode(0)
+	return enums.StatusCode_OK
 }
 
 // `FileSyncState` contains the status of the current file sync

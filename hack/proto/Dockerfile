@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+ 
 FROM golang:1.15 AS generate-files
 RUN apt-get update && apt-get install -y unzip moreutils
-
+ 
 WORKDIR /protoc
 ENV PROTOC_VERSION=3.17.3
 RUN plat=$(case $(uname -s)-$(uname -m) in Linux-x86_64) echo linux-x86_64;; Linux-aarch64) echo linux-aarch_64;; *) echo UNKNOWN;; esac); \
   wget -O protoc.zip https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${plat}.zip
 RUN unzip protoc.zip
 ENV PATH="/protoc/bin:${PATH}"
-
+ 
 WORKDIR /grpc-gateway
 RUN wget -q -O- https://github.com/grpc-ecosystem/grpc-gateway/tarball/v2.5.0 | tar --strip-components 1 -zx
 
@@ -90,19 +90,31 @@ RUN protoc \
 RUN wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && chmod +x ./jq
 RUN ./jq 'walk(if type == "object" and has("title") then .description = ([.title, .description] | map(values) | join ("\n")) | del(.title) else .  end)' v1/skaffold.swagger.json | sponge v1/skaffold.swagger.json
 RUN ./jq 'walk(if type == "object" and has("title") then .description = ([.title, .description] | map(values) | join ("\n")) | del(.title) else .  end)' v2/skaffold.swagger.json | sponge v2/skaffold.swagger.json
-
+RUN ./jq 'walk(if type == "object" and has("title") then .description = ([.title, .description] | map(values) | join ("\n")) | del(.title) else .  end)' v3/skaffold.swagger.json | sponge v3/skaffold.swagger.json
+ 
 # Append enum docs content to main docs content
 RUN cat enums/enums.md >> v1/index.md
 RUN cat enums/enums.md >> v2/index.md
-
+RUN cat enums/enums.md >> v3/index.md
+ 
 # Compare the proto files with the existing proto files
 FROM generate-files AS compare
 WORKDIR /compare/v1
 COPY v1/*.go ./
 COPY --from=generate-files /proto/v1/index.md ./
-
+ 
 WORKDIR /compare/v2
 COPY v2/*.go ./
 COPY --from=generate-files /proto/v2/index.md ./
+ 
+WORKDIR /compare/v3
+COPY v3/*.go ./
+COPY --from=generate-files /proto/v3/index.md ./
+ 
 CMD cmp /proto/v1/skaffold.pb.go /compare/v1/skaffold.pb.go && cmp /proto/v1/skaffold.pb.gw.go /compare/v1/skaffold.pb.gw.go && \
-    cmp /proto/v2/skaffold.pb.go /compare/v2/skaffold.pb.go && cmp /proto/v2/skaffold.pb.gw.go /compare/v2/skaffold.pb.gw.go
+   cmp /proto/v2/skaffold.pb.go /compare/v2/skaffold.pb.go && cmp /proto/v2/skaffold.pb.gw.go /compare/v2/skaffold.pb.gw.go && \
+   cmp /proto/v3/skaffold.pb.go /compare/v3/skaffold.pb.go && cmp /proto/v3/skaffold.pb.gw.go /compare/v3/skaffold.pb.gw.go
+ 
+ 
+
+
