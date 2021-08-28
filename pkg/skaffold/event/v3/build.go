@@ -38,7 +38,7 @@ func CacheCheckInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildStartedEvent)
+	handler.handle(buildEvent, BuildStartedEvent)
 }
 
 func CacheCheckMiss(artifact string) {
@@ -50,7 +50,7 @@ func CacheCheckMiss(artifact string) {
 		Status:        Failed,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildFailedEvent)
+	handler.handle(buildEvent, BuildFailedEvent)
 }
 
 func CacheCheckHit(artifact string) {
@@ -62,11 +62,10 @@ func CacheCheckHit(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildSucceededEvent)
+	handler.handle(buildEvent, BuildSucceededEvent)
 }
 
 func BuildInProgress(artifact string) {
-	fmt.Println("Build Started event")
 	buildEvent := &protoV3.BuildStartedEvent{
 		Id:            artifact,
 		TaskId:        fmt.Sprintf("%s-%d", constants.Build, handler.iteration),
@@ -75,7 +74,8 @@ func BuildInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildStartedEvent)
+	updateBuildStatus(buildEvent.Artifact, buildEvent.Status)
+	handler.handle(buildEvent, BuildStartedEvent)
 }
 
 func BuildFailed(artifact string, err error) {
@@ -91,7 +91,8 @@ func BuildFailed(artifact string, err error) {
 		Status:        Failed,
 		ActionableErr: aErr,
 	}
-	handler.handle(artifact, buildEvent, BuildFailedEvent)
+	updateBuildStatus(buildEvent.Artifact, buildEvent.Status)
+	handler.handle(buildEvent, BuildFailedEvent)
 }
 
 func BuildSucceeded(artifact string) {
@@ -103,7 +104,8 @@ func BuildSucceeded(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildSucceededEvent)
+	updateBuildStatus(buildEvent.Artifact, buildEvent.Status)
+	handler.handle(buildEvent, BuildSucceededEvent)
 }
 
 func BuildCanceled(artifact string, err error) {
@@ -118,5 +120,12 @@ func BuildCanceled(artifact string, err error) {
 		Status:        Canceled,
 		ActionableErr: aErr,
 	}
-	handler.handle(artifact, buildEvent, BuildCancelledEvent)
+	updateBuildStatus(buildEvent.Artifact, buildEvent.Status)
+	handler.handle(buildEvent, BuildCancelledEvent)
+}
+
+func updateBuildStatus(artifact string, status string) {
+	handler.stateLock.Lock()
+	handler.state.BuildState.Artifacts[artifact] = status
+	handler.stateLock.Unlock()
 }

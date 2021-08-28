@@ -31,7 +31,8 @@ func DeployInProgress(id int) {
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: InProgress,
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeployStartedEvent)
+	updateDeployStatus(deployEvent.Status)
+	handler.handle(deployEvent, DeployStartedEvent)
 }
 
 func DeployFailed(id int, err error) {
@@ -41,7 +42,8 @@ func DeployFailed(id int, err error) {
 		Status:        Failed,
 		ActionableErr: sErrors.ActionableErrV3(handler.cfg, constants.Deploy, err),
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeployFailedEvent)
+	updateDeployStatus(deployEvent.Status)
+	handler.handle(deployEvent, DeployFailedEvent)
 }
 
 func DeploySucceeded(id int) {
@@ -50,5 +52,12 @@ func DeploySucceeded(id int) {
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: Succeeded,
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeploySucceededEvent)
+	updateDeployStatus(deployEvent.Status)
+	handler.handle(deployEvent, DeploySucceededEvent)
+}
+
+func updateDeployStatus(status string) {
+	handler.stateLock.Lock()
+	handler.state.DeployState.Status = status
+	handler.stateLock.Unlock()
 }

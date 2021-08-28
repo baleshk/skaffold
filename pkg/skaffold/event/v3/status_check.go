@@ -39,7 +39,7 @@ func ResourceStatusCheckEventCompletedMessage(r string, message string, ae proto
 		Message:   message,
 		Level:     -1,
 	}
-	handler.handle(event.TaskId, event, SkaffoldLogEvent)
+	handler.handle(event, SkaffoldLogEvent)
 }
 
 func resourceStatusCheckEventSucceeded(r string) {
@@ -51,7 +51,8 @@ func resourceStatusCheckEventSucceeded(r string) {
 		Message:    Succeeded,
 		StatusCode: protoV3.StatusCode_STATUSCHECK_SUCCESS,
 	}
-	handler.handle(r, event, StatusCheckSucceededEvent)
+	updateStatusCheckState(event.Resource, event.Status)
+	handler.handle(event, StatusCheckSucceededEvent)
 }
 
 func resourceStatusCheckEventFailed(r string, ae protoV3.ActionableErr) {
@@ -63,7 +64,8 @@ func resourceStatusCheckEventFailed(r string, ae protoV3.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	handler.handle(r, event, StatusCheckFailedEvent)
+	updateStatusCheckState(event.Resource, event.Status)
+	handler.handle(event, StatusCheckFailedEvent)
 }
 
 func ResourceStatusCheckEventUpdated(r string, ae protoV3.ActionableErr) {
@@ -76,7 +78,8 @@ func ResourceStatusCheckEventUpdated(r string, ae protoV3.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	handler.handle(r, event, StatusCheckStartedEvent)
+	updateStatusCheckState(event.Resource, event.Status)
+	handler.handle(event, StatusCheckStartedEvent)
 }
 
 func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae protoV3.ActionableErr) {
@@ -87,5 +90,11 @@ func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae protoV3
 		Message:   fmt.Sprintf("%s %s\n", message, ae.Message),
 		Level:     -1,
 	}
-	handler.handle(event.TaskId, event, SkaffoldLogEvent)
+	handler.handle(event, SkaffoldLogEvent)
+}
+
+func updateStatusCheckState(resrouce string, status string) {
+	handler.stateLock.Lock()
+	handler.state.StatusCheckState.Resources[resrouce] = status
+	handler.stateLock.Unlock()
 }

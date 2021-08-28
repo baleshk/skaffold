@@ -29,7 +29,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	proto "google.golang.org/protobuf/proto"
-	proto1 "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
@@ -63,13 +62,12 @@ func TestGetLogEvents(t *testing.T) {
 				Message: "POISON PILL"}, proto.MarshalOptions{})
 			ev.logEvent(&protoV3.Event{
 				Type: SkaffoldLogEvent, Data: localEvent2})
-
 		}()
 
 		var received int32
 		ev.forEachEvent(func(e *protoV3.Event) error {
 			se := &protoV3.SkaffoldLogEvent{}
-			anypb.UnmarshalTo(e.Data, se, proto1.UnmarshalOptions{})
+			anypb.UnmarshalTo(e.Data, se, proto.UnmarshalOptions{})
 
 			if se.Message == "POISON PILL" {
 				return errors.New("Done")
@@ -428,8 +426,6 @@ func TestSaveEventsToFile(t *testing.T) {
 	buildCompleteEvent, devLoopCompleteEvent := 0, 0
 
 	for _, entry := range logEntries {
-		////t.Log(entry.GetEventType())
-
 		switch entry.Type {
 		case BuildSucceededEvent:
 			buildCompleteEvent++
