@@ -155,6 +155,49 @@ message Event {
     string datacontenttype = 7;
 }
 
+message EventContainer {
+    string type = 1;
+    string source = 2;
+    string id = 3;
+    google.protobuf.Timestamp time = 4; // timestamp of the event.
+    oneof event_type {
+        MetaEvent metaEvent = 5; // contains general information regarding Skaffold like version info
+        SkaffoldLogEvent skaffoldLogEvent = 6; // describes a log that comes from a skaffold phase
+        ApplicationLogEvent applicationLogEvent = 7; // describes a log that comes from the user's running application
+        TaskStartedEvent taskStartedEvent = 8; // describes the start, end, or failure of a skaffold phase
+        TaskCompletedEvent taskCompletedEvent = 9; // describes the start, end, or failure of a skaffold phase
+        TaskFailedEvent taskFailedEvent = 10; // describes the start, end, or failure of a skaffold phase
+        BuildStartedEvent buildStartedEvent = 11; // describes if the build status per artifact. Status could be one of "InProgress", "Completed" or "Failed".
+        BuildFailedEvent buildFailedEvent = 12; // describes if the build status per artifact. Status could be one of "InProgress", "Completed" or "Failed".
+        BuildSucceededEvent buildSucceededEvent = 13; // describes if the build status per artifact. Status could be one of "InProgress", "Completed" or "Failed".
+        BuildCancelledEvent buildCancelledEvent = 14; // describes if the build status per artifact. Status could be one of "InProgress", "Completed" or "Failed".
+        
+        DeployStartedEvent deployStartedEvent = 15; // describes if the deployment has started, is in progress or is complete.
+        DeployFailedEvent deployFailedEvent = 16; // describes if the deployment has started, is in progress or is complete.
+        DeploySucceededEvent deploySucceededEvent = 17; // describes if the deployment has started, is in progress or is complete.
+        
+
+        PortForwardEvent portEvent = 18; //  describes each port forwarding event.
+        StatusCheckStartedEvent statusCheckStartedEvent = 19; // describes if the Status check has started, is in progress, has succeeded or failed.
+        StatusCheckFailedEvent statusCheckFailedEvent = 20; // describes if the Status check has started, is in progress, has succeeded or failed.
+        StatusCheckSucceededEvent statusCheckSucceededEvent = 21; // describes if the Status check has started, is in progress, has succeeded or failed.
+        
+        FileSyncEvent fileSyncEvent = 22; // describes the sync status.
+        DebuggingContainerStartedEvent debuggingContainerStartedEvent = 23; // describes the appearance or disappearance of a debugging container
+        DebuggingContainerTerminatedEvent debuggingContainerTerminatedEvent = 24; // describes the appearance or disappearance of a debugging container
+        
+        TerminationEvent terminationEvent = 25; // describes a skaffold termination event
+        TestStartedEvent testStartedEvent = 26; // describes if the test has started, is in progress or is complete.
+        TestFailedEvent testFailedEvent = 27; // describes if the test has started, is in progress or is complete.
+        TestSucceededEvent testSucceededEvent = 28; // describes if the test has started, is in progress or is complete.
+
+        RenderStartedEvent renderStartedEvent = 29; // describes if the render has started, is in progress or is complete.
+        RenderFailedEvent renderFailedEvent = 30; // describes if the render has started, is in progress or is complete.
+        RenderSucceededEvent renderSucceededEvent = 31; // describes if the render has started, is in progress or is complete.
+
+    }
+}
+
 // `TerminationEvent` marks the end of the skaffold session
 message TerminationEvent {
     string status = 1; // status oneof: Completed or Failed

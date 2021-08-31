@@ -31,7 +31,11 @@ func DeployInProgress(id int) {
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: InProgress,
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeployStartedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: DeployStartedEvent,
+		EventType: &protoV3.EventContainer_DeployStartedEvent{
+			DeployStartedEvent: deployEvent,
+		}})
 }
 
 func DeployFailed(id int, err error) {
@@ -41,7 +45,11 @@ func DeployFailed(id int, err error) {
 		Status:        Failed,
 		ActionableErr: sErrors.ActionableErrV3(handler.cfg, constants.Deploy, err),
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeployFailedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: DeployFailedEvent,
+		EventType: &protoV3.EventContainer_DeployFailedEvent{
+			DeployFailedEvent: deployEvent,
+		}})
 }
 
 func DeploySucceeded(id int) {
@@ -50,5 +58,9 @@ func DeploySucceeded(id int) {
 		TaskId: fmt.Sprintf("%s-%d", constants.Deploy, handler.iteration),
 		Status: Succeeded,
 	}
-	handler.handle(deployEvent.Id, deployEvent, DeploySucceededEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: DeploySucceededEvent,
+		EventType: &protoV3.EventContainer_DeploySucceededEvent{
+			DeploySucceededEvent: deployEvent,
+		}})
 }

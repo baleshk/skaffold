@@ -42,27 +42,28 @@ var targetPort = protoV3.IntOrString{Type: 0, IntVal: 2001}
 
 func TestGetLogEvents(t *testing.T) {
 	for step := 0; step < 1000; step++ {
-		eventInAnyFormat := &anypb.Any{}
-
-		anypb.MarshalFrom(eventInAnyFormat, &protoV3.SkaffoldLogEvent{
-			Message: "OLD"}, proto.MarshalOptions{})
-
 		ev := newHandler()
-		ev.logEvent(&protoV3.Event{
-			Type: SkaffoldLogEvent, Data: eventInAnyFormat})
+		ev.handleInternal(&protoV3.EventContainer{
+			Type: SkaffoldLogEvent,
+			EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+				SkaffoldLogEvent: &protoV3.SkaffoldLogEvent{
+					Message: "OLD"},
+			}})
 
 		go func() {
-			localEvent1 := &anypb.Any{}
-			anypb.MarshalFrom(localEvent1, &protoV3.SkaffoldLogEvent{
-				Message: "FRESH"}, proto.MarshalOptions{})
-			ev.logEvent(&protoV3.Event{
-				Type: SkaffoldLogEvent, Data: localEvent1})
+			ev.handleInternal(&protoV3.EventContainer{
+				Type: SkaffoldLogEvent,
+				EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+					SkaffoldLogEvent: &protoV3.SkaffoldLogEvent{
+						Message: "FRESH"},
+				}})
 
-			localEvent2 := &anypb.Any{}
-			anypb.MarshalFrom(localEvent2, &protoV3.SkaffoldLogEvent{
-				Message: "POISON PILL"}, proto.MarshalOptions{})
-			ev.logEvent(&protoV3.Event{
-				Type: SkaffoldLogEvent, Data: localEvent2})
+			ev.handleInternal(&protoV3.EventContainer{
+				Type: SkaffoldLogEvent,
+				EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+					SkaffoldLogEvent: &protoV3.SkaffoldLogEvent{
+						Message: "POISEN PILL"},
+				}})
 
 		}()
 
@@ -71,7 +72,7 @@ func TestGetLogEvents(t *testing.T) {
 			se := &protoV3.SkaffoldLogEvent{}
 			anypb.UnmarshalTo(e.Data, se, proto1.UnmarshalOptions{})
 
-			if se.Message == "POISON PILL" {
+			if se.Message == "POISEN PILL" {
 				return errors.New("Done")
 			}
 

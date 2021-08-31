@@ -38,7 +38,11 @@ func CacheCheckInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildStartedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildStartedEvent,
+		EventType: &protoV3.EventContainer_BuildStartedEvent{
+			BuildStartedEvent: buildEvent,
+		}})
 }
 
 func CacheCheckMiss(artifact string) {
@@ -50,7 +54,12 @@ func CacheCheckMiss(artifact string) {
 		Status:        Failed,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildFailedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildFailedEvent,
+		EventType: &protoV3.EventContainer_BuildFailedEvent{
+			BuildFailedEvent: buildEvent,
+		},
+	})
 }
 
 func CacheCheckHit(artifact string) {
@@ -62,7 +71,11 @@ func CacheCheckHit(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildSucceededEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildSucceededEvent,
+		EventType: &protoV3.EventContainer_BuildSucceededEvent{
+			BuildSucceededEvent: buildEvent,
+		}})
 }
 
 func BuildInProgress(artifact string) {
@@ -74,7 +87,11 @@ func BuildInProgress(artifact string) {
 		Status:        InProgress,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildStartedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildStartedEvent,
+		EventType: &protoV3.EventContainer_BuildStartedEvent{
+			BuildStartedEvent: buildEvent,
+		}})
 }
 
 func BuildFailed(artifact string, err error) {
@@ -90,7 +107,11 @@ func BuildFailed(artifact string, err error) {
 		Status:        Failed,
 		ActionableErr: aErr,
 	}
-	handler.handle(artifact, buildEvent, BuildFailedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildFailedEvent,
+		EventType: &protoV3.EventContainer_BuildFailedEvent{
+			BuildFailedEvent: buildEvent,
+		}})
 }
 
 func BuildSucceeded(artifact string) {
@@ -102,7 +123,11 @@ func BuildSucceeded(artifact string) {
 		Status:        Succeeded,
 		ActionableErr: nil,
 	}
-	handler.handle(artifact, buildEvent, BuildSucceededEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildSucceededEvent,
+		EventType: &protoV3.EventContainer_BuildSucceededEvent{
+			BuildSucceededEvent: buildEvent,
+		}})
 }
 
 func BuildCanceled(artifact string, err error) {
@@ -117,5 +142,9 @@ func BuildCanceled(artifact string, err error) {
 		Status:        Canceled,
 		ActionableErr: aErr,
 	}
-	handler.handle(artifact, buildEvent, BuildCancelledEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: BuildCancelledEvent,
+		EventType: &protoV3.EventContainer_BuildCancelledEvent{
+			BuildCancelledEvent: buildEvent,
+		}})
 }

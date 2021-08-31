@@ -39,7 +39,12 @@ func ResourceStatusCheckEventCompletedMessage(r string, message string, ae proto
 		Message:   message,
 		Level:     -1,
 	}
-	handler.handle(event.TaskId, event, SkaffoldLogEvent)
+
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: SkaffoldLogEvent,
+		EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+			SkaffoldLogEvent: event,
+		}})
 }
 
 func resourceStatusCheckEventSucceeded(r string) {
@@ -51,7 +56,11 @@ func resourceStatusCheckEventSucceeded(r string) {
 		Message:    Succeeded,
 		StatusCode: protoV3.StatusCode_STATUSCHECK_SUCCESS,
 	}
-	handler.handle(r, event, StatusCheckSucceededEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: StatusCheckSucceededEvent,
+		EventType: &protoV3.EventContainer_StatusCheckSucceededEvent{
+			StatusCheckSucceededEvent: event,
+		}})
 }
 
 func resourceStatusCheckEventFailed(r string, ae protoV3.ActionableErr) {
@@ -63,7 +72,11 @@ func resourceStatusCheckEventFailed(r string, ae protoV3.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	handler.handle(r, event, StatusCheckFailedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: StatusCheckFailedEvent,
+		EventType: &protoV3.EventContainer_StatusCheckFailedEvent{
+			StatusCheckFailedEvent: event,
+		}})
 }
 
 func ResourceStatusCheckEventUpdated(r string, ae protoV3.ActionableErr) {
@@ -76,7 +89,11 @@ func ResourceStatusCheckEventUpdated(r string, ae protoV3.ActionableErr) {
 		StatusCode:    ae.ErrCode,
 		ActionableErr: &ae,
 	}
-	handler.handle(r, event, StatusCheckStartedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: StatusCheckStartedEvent,
+		EventType: &protoV3.EventContainer_StatusCheckStartedEvent{
+			StatusCheckStartedEvent: event,
+		}})
 }
 
 func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae protoV3.ActionableErr) {
@@ -87,5 +104,10 @@ func ResourceStatusCheckEventUpdatedMessage(r string, message string, ae protoV3
 		Message:   fmt.Sprintf("%s %s\n", message, ae.Message),
 		Level:     -1,
 	}
-	handler.handle(event.TaskId, event, SkaffoldLogEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: SkaffoldLogEvent,
+		EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+			SkaffoldLogEvent: event,
+		}})
+
 }

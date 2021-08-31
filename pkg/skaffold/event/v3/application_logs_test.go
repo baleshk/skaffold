@@ -42,7 +42,11 @@ func TestHandleApplicationLogEvent(t *testing.T) {
 			Message:              message,
 			RichFormattedMessage: "",
 		}
-		testHandler.handle(message, event, ApplicationLogEvent)
+		testHandler.handleInternal(&protoV3.EventContainer{
+			Type: ApplicationLogEvent,
+			EventType: &protoV3.EventContainer_ApplicationLogEvent{
+				ApplicationLogEvent: event,
+			}})
 	}
 
 	wait(t, func() bool {

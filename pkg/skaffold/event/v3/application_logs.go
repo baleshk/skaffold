@@ -28,5 +28,9 @@ func ApplicationLog(podName, containerName, prefix, message, formattedMessage st
 		Message:              message,
 		RichFormattedMessage: formattedMessage,
 	}
-	handler.handle("Id-Not-Present", event, ApplicationLogEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: ApplicationLogEvent,
+		EventType: &protoV3.EventContainer_ApplicationLogEvent{
+			ApplicationLogEvent: event,
+		}})
 }

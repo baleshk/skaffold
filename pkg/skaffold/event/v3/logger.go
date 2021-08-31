@@ -51,7 +51,11 @@ func (l logger) Write(p []byte) (int, error) {
 }
 
 func (ev *eventHandler) handleSkaffoldLogEvent(e *protoV3.SkaffoldLogEvent) {
-	ev.handle("Id-skaffoldLog", e, SkaffoldLogEvent)
+	ev.handleInternal(&protoV3.EventContainer{
+		Type: SkaffoldLogEvent,
+		EventType: &protoV3.EventContainer_SkaffoldLogEvent{
+			SkaffoldLogEvent: e,
+		}})
 }
 
 // logHook is an implementation of logrus.Hook used to send SkaffoldLogEvents

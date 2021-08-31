@@ -32,7 +32,11 @@ func DebuggingContainerStarted(podName, containerName, namespace, artifact, runt
 		WorkingDir:    workingDir,
 		DebugPorts:    debugPorts,
 	}
-	handler.handle(artifact, debuggingContainerEvent, DebuggingContainerStartedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: DebuggingContainerStartedEvent,
+		EventType: &protoV3.EventContainer_DebuggingContainerStartedEvent{
+			DebuggingContainerStartedEvent: debuggingContainerEvent,
+		}})
 }
 
 // DebuggingContainerTerminated notifies that a debuggable container has disappeared.
@@ -47,5 +51,9 @@ func DebuggingContainerTerminated(podName, containerName, namespace, artifact, r
 		WorkingDir:    workingDir,
 		DebugPorts:    debugPorts,
 	}
-	handler.handle(artifact, debuggingContainerEvent, DebuggingContainerTerminatedEvent)
+	handler.handleInternal(&protoV3.EventContainer{
+		Type: DebuggingContainerTerminatedEvent,
+		EventType: &protoV3.EventContainer_DebuggingContainerTerminatedEvent{
+			DebuggingContainerTerminatedEvent: debuggingContainerEvent,
+		}})
 }
