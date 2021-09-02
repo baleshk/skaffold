@@ -30,7 +30,7 @@ import (
 )
 
 func TestMakeAuthSuggestionsForRepo(t *testing.T) {
-	testutil.CheckDeepEqual(t, &proto.Suggestion{
+	testutil.CheckDeepEqualProtoMessage(t, &proto.Suggestion{
 		SuggestionCode: proto.SuggestionCode_DOCKER_AUTH_CONFIGURE,
 		Action:         "try `docker login`",
 	}, makeAuthSuggestionsForRepo(""), protocmp.Transform())
