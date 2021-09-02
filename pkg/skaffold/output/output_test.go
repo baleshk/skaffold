@@ -135,15 +135,15 @@ func TestWithEventContext(t *testing.T) {
 		{
 			name: "skaffoldWriter update info",
 			writer: skaffoldWriter{
-				MainWriter:  ioutil.Discard,
-				EventWriter: eventV2.NewLogger(constants.Build, "1"),
-			},
+				MainWriter:    ioutil.Discard,
+				EventWriter:   eventV2.NewLogger(constants.Build, "1"),
+				EventWriterV3: eventV3.NewLogger(constants.Build, "1")},
 			phase:     constants.Test,
 			subtaskID: "2",
 			expected: skaffoldWriter{
-				MainWriter:  ioutil.Discard,
-				EventWriter: eventV2.NewLogger(constants.Test, "2"),
-				EventWriterV3: eventV3.NewLogger(constants.Test, "2"),			},
+				MainWriter:    ioutil.Discard,
+				EventWriter:   eventV2.NewLogger(constants.Test, "2"),
+				EventWriterV3: eventV3.NewLogger(constants.Test, "2")},
 		},
 		{
 			name:     "non skaffoldWriter returns same",
@@ -170,9 +170,10 @@ func TestWriteWithTimeStamps(t *testing.T) {
 			name: "skaffold writer with color and timestamps",
 			writer: func(out io.Writer) io.Writer {
 				return skaffoldWriter{
-					MainWriter:  colorableWriter{out},
-					EventWriter: ioutil.Discard,
-					timestamps:  true,
+					MainWriter:    colorableWriter{out},
+					EventWriter:   ioutil.Discard,
+					EventWriterV3: ioutil.Discard,
+					timestamps:    true,
 				}
 			},
 			expectedLen: len(timestampFormat) + len(" \u001B[32mtesting!\u001B[0m"),
@@ -181,8 +182,9 @@ func TestWriteWithTimeStamps(t *testing.T) {
 			name: "skaffold writer with color and no timestamps",
 			writer: func(out io.Writer) io.Writer {
 				return skaffoldWriter{
-					MainWriter:  colorableWriter{out},
-					EventWriter: ioutil.Discard,
+					MainWriter:    colorableWriter{out},
+					EventWriter:   ioutil.Discard,
+					EventWriterV3: ioutil.Discard,
 				}
 			},
 			expectedLen: len("\u001B[32mtesting!\u001B[0m"),
@@ -191,9 +193,10 @@ func TestWriteWithTimeStamps(t *testing.T) {
 			name: "skaffold writer with timestamps and no color",
 			writer: func(out io.Writer) io.Writer {
 				return skaffoldWriter{
-					MainWriter:  out,
-					EventWriter: ioutil.Discard,
-					timestamps:  true,
+					MainWriter:    out,
+					EventWriter:   ioutil.Discard,
+					EventWriterV3: ioutil.Discard,
+					timestamps:    true,
 				}
 			},
 			expectedLen: len(timestampFormat) + len(" testing!"),
@@ -202,8 +205,9 @@ func TestWriteWithTimeStamps(t *testing.T) {
 			name: "skaffold writer with no color and no timestamps",
 			writer: func(out io.Writer) io.Writer {
 				return skaffoldWriter{
-					MainWriter:  out,
-					EventWriter: ioutil.Discard,
+					MainWriter:    out,
+					EventWriter:   ioutil.Discard,
+					EventWriterV3: ioutil.Discard,
 				}
 			},
 			expectedLen: len("testing!"),
