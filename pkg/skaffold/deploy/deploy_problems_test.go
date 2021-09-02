@@ -98,11 +98,7 @@ func TestSuggestDeployFailedAction(t *testing.T) {
 			actual := sErrors.ShowAIError(&cfg, test.err)
 			t.CheckDeepEqual(test.expected, actual.Error())
 			actualAE := sErrors.ActionableErr(&cfg, constants.Deploy, test.err)
-			t.CheckDeepEqual(test.expectedAE, actualAE, protocmp.Transform())
 		})
-	}
-}
-
 type mockConfig struct {
 	minikube    string
 	kubeContext string
