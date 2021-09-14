@@ -90,7 +90,7 @@ func ActionableErrV3(cfg interface{}, phase constants.Phase, err error) *protoV3
 	}
 }
 
-func V3fromV1(ae proto.ActionableErr) protoV3.ActionableErr {
+func V3fromV1(ae *proto.ActionableErr) protoV3.ActionableErr {
 	suggestionsV3 := make([]*protoV3.Suggestion, len(ae.Suggestions))
 	for i, suggestion := range ae.Suggestions {
 		var suggestions3 protoV3.Suggestion
@@ -106,7 +106,7 @@ func V3fromV1(ae proto.ActionableErr) protoV3.ActionableErr {
 	}
 }
 
-func V2fromV1(ae proto.ActionableErr) protoV2.ActionableErr {
+func V2fromV1(ae *proto.ActionableErr) *protoV2.ActionableErr {
 	suggestionsV2 := make([]*protoV2.Suggestion, len(ae.Suggestions))
 	for i, suggestion := range ae.Suggestions {
 		var suggestions2 protoV2.Suggestion

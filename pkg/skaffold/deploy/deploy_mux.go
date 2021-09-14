@@ -110,7 +110,7 @@ func (m DeployerMux) Deploy(ctx context.Context, w io.Writer, as []graph.Artifac
 	for i, deployer := range m.deployers {
 		eventV2.DeployInProgress(i)
 		eventV3.DeployInProgress(i)
-		w = output.WithEventContext(w, constants.Deploy, strconv.Itoa(i))
+		w, ctx = output.WithEventContext(ctx, w, constants.Deploy, strconv.Itoa(i))
 		ctx, endTrace := instrumentation.StartTrace(ctx, "Deploy")
 		runHooks := false
 		deployHooks, ok := deployer.(deployerWithHooks)
@@ -150,7 +150,6 @@ func (m DeployerMux) Deploy(ctx context.Context, w io.Writer, as []graph.Artifac
 
 	return nil
 }
-
 func (m DeployerMux) Dependencies() ([]string, error) {
 	deps := util.NewStringSet()
 	for _, deployer := range m.deployers {
