@@ -26,7 +26,6 @@ import (
 	eventV2 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v2"
 	eventV3 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/event/v3"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output/log"
-	"github.com/sirupsen/logrus"
 )
 
 const timestampFormat = "2006-01-02 15:04:05"
@@ -74,7 +73,7 @@ func GetWriter(ctx context.Context, out io.Writer, defaultColor int, forceColors
 	}
 
 	return skaffoldWriter{
-		MainWriter:    SetupColors(out, defaultColor, forceColors),
+		MainWriter:    SetupColors(ctx, out, defaultColor, forceColors),
 		EventWriter:   eventV2.NewLogger(constants.DevLoop, "-1"),
 		EventWriterV3: eventV3.NewLogger(constants.DevLoop, "-1"),
 		timestamps:    timestamps,
@@ -122,21 +121,7 @@ func WithEventContext(ctx context.Context, out io.Writer, phase constants.Phase,
 			task:          phase,
 			subtask:       subtaskID,
 			timestamps:    sw.timestamps,
-		}
-	}
-
-	return out
-}
-
-// Log takes an io.Writer (ideally of type output.skaffoldWriter) and constructs
-// a logrus.Entry from it, adding fields for task and subtask information
-func Log(out io.Writer) *logrus.Entry {
-	sw, isSW := out.(skaffoldWriter)
-	if isSW {
-		return logrus.WithFields(logrus.Fields{
-			"task":    sw.task,
-			"subtask": sw.subtask,
-		})
+		}, ctx
 	}
 
 	return out, ctx
